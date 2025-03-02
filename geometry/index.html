@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homework 2: Bezier Curves, Surfaces and Triangle Meshes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .table-3-col td img {
+            width: calc(100% - 10px);
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .table-4-col td img {
+            width: calc(100% - 10px);
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .table-2-col td img {
+            width: calc(100% - 10px);
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .single-image {
+            max-width: 800px;
+            margin: 20px auto;
+            display: block;
+        }
+        .math-equation {
+            overflow-x: auto;
+            padding: 10px 0;
+            text-align: center;
+        }
+        blockquote {
+            margin: 0;
+            padding: 10px 20px;
+            background-color: #f9f9f9;
+            border-left: 5px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bezier Curves and Surfaces, Triangle Meshes and Loop Subdivision</h1>
+    
+    <h2>Overview</h2>
+    
+    <p>In this project, we explore <strong>Bezier Curves and Surfaces</strong>, and <strong>Triangle Meshes</strong> with the <strong>Half-Edge Data Structure</strong>, ending with <strong>Loop Subdivision</strong>. The first section delves into the mathematical foundations and practical applications of Bezier curves and surfaces, including the implementation of <strong>De Casteljau's algorithm</strong>. The second section focuses on the manipulation and refinement of triangle meshes using the half-edge data structure and <strong>C++ iterators</strong>, covering essential operations such as <strong>area-weighted normals</strong>, <strong>edge flips</strong>, and <strong>edge splits</strong>. The project culminates in the implementation of <strong>Loop Subdivision</strong> for mesh upsampling to achieve smooth and detailed 3D models. The expected result of the second part is to end up with loop subdivided meshes as shown below:</p>
+    
+    <img src="images/image-45.png" alt="Loop Subdivision Result" class="single-image">
+    
+    <h2>Section 1: Bezier Curves and Surfaces</h2>
+    
+    <p>A bezier curve is a parametric curve that is defined by a set of control points. Given these control points, we can interpolate a curve that is guided by the control points, allowing for smooth curves to be created. Bezier surfaces are an extension of bezier curves, where we can create a surface by interpolating a set of control points. This is extremely useful in computer graphics, as it allows us to create smooth surfaces of meshes defined by a set of control points.</p>
+    
+    <p>For instance, the following <code>5</code> 2D control points</p>
+    
+    <pre><code>0.200 0.350   0.300 0.600   0.500 0.750   0.700 0.450  1.000 0.900</code></pre>
+    
+    <p>can be used to create the following bezier curve</p>
+    
+    <img src="images/image.png" alt="Bezier Curve" class="single-image">
+    
+    <h3>De Casteljau's Algorithm</h3>
+    
+    <p>The methodology for creating a bezier curve is very simple -- it is just a sequence of linear interpolations between the control points. We can use the De Casteljau's algorithm to calculate the points on the curve. The algorithm first calculates the linear interpolation between each pair of control points, and then calculates the linear interpolation between the resulting points, and so on. Note that this will result in one less resulting point than the inputs it interpolated on. This process is repeated until we have a single point, which is the point on the bezier curve. This is then done for a set of <code>t</code> values we use for linear interpolation that range from <code>0</code> to <code>1</code>. Consider <code>t = 0.5</code> for the above example, where the new blue points are the linear interpolations after every iteration, and the red point is the resulting point that gets drawn on the curve:</p>
+    
+    <table class="table-4-col">
+        <tr>
+            <th>Iteration 1</th>
+            <th>Iteration 2</th>
+            <th>Iteration 3</th>
+            <th>Iteration 4</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-1.png" alt="Iteration 1"></td>
+            <td><img src="images/image-2.png" alt="Iteration 2"></td>
+            <td><img src="images/image-3.png" alt="Iteration 3"></td>
+            <td><img src="images/image-4.png" alt="Iteration 4"></td>
+        </tr>
+    </table>
+    
+    <h3>Bezier Surfaces</h3>
+    
+    <p>This same concept can be extended to bezier surfaces, where we can create a surface by interpolating a set of control points. Instead of a single <code>t</code> parameter, we are dealing with two parameters <code>u</code> and <code>v</code> that range from <code>0</code> to <code>1</code> where <code>u</code> is the parameter that interpolates between the rows of control points and <code>v</code> interpolates between the columns. The control points are now defined by a control "patch" that creates any bezier surface. The De Casteljau's algorithm can be extended to calculate the points on the surface by first interpolating between the rows of control points, and then interpolating between the resulting points. In other words, we get points that determine bezier curves in <code>u</code> and then interpolate at <code>v</code> along the curve created by the points in <code>u</code>. Below is a visualization of a bezier surface created by a set of control points:</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>Bezier Surface Patch</th>
+            <th>UV De Casteljau's Algorithm</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-6.png" alt="Bezier Surface Patch"></td>
+            <td><img src="images/image-5.png" alt="UV De Casteljau's Algorithm"></td>
+        </tr>
+    </table>
+    
+    <h3>Results</h3>
+    
+    <p>With a set of control point patches, we can create complex bezier surfaces. For instance, we can create the famous Utah teapot by interpolating a set of control points. Below is a visualization of the Utah teapot created by a set of control points:</p>
+    
+    <img src="images/image-7.png" alt="Utah Teapot" class="single-image">
+    
+    <h2>Section 2: Triangle Meshes and Half-Edge Data Structure</h2>
+    
+    <p>A triangle mesh is a collection of vertices, edges, and faces that define a 3D object. There are many representations of triangle meshes, but one of the most common representations is the half-edge data structure, which is the representation we will be using in this project. The half-edge data structure is a data structure that represents a mesh as a set of half-edges, which are directed edges that represent the edges of the mesh. Each half-edge has a pointer to its twin half-edge, which is the half-edge that is the reverse of the current half-edge. This allows us to easily traverse the mesh and access the vertices, edges, and faces of the mesh. More specifically, we use <code>FaceIter</code>s, <code>EdgeIter</code>s, <code>VertexIter</code>s, and other iterators in <code>C++</code> to traverse over mesh elements. A visualization of the half-edge data structure is shown below:</p>
+    
+    <table>
+        <tr>
+            <td><img src="images/image-8.png" alt="Half-Edge Data Structure"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center; font-style: italic;">Each half-edge is associated with the face where the half-edge points along the counterclockwise (CCW) direction on the face. The half-edge data structure is designed such that each half-edge has pointers to (1) the opposite half-edge, called its twin, (2) the next half-edge CCW around the face associated with the half-edge, and (3) the vertex that is the "source" of the half-edge, (4) its associated edge, and (5) its associated face as explained above. In contrast, each primitive mesh element (a vertex, edge, and face) only has a pointer to one of their half-edges. In more detail, (1) a vertex only has a pointer to one of the half-edges that points away from the vertex, (2) an edge only has a pointer to one of its two half-edges, and (3) a face only has a pointer to one of the half-edges circulating around its interior.</td>
+        </tr>
+    </table>
+    
+    <h3>Area Weighted Normals</h3>
+    
+    <p>One of the most important operations we can perform on a triangle mesh is to calculate the normals of the vertices. The normals of the vertices are important for shading and rendering the mesh, as they determine how light interacts with the surface of the mesh. To implement the area weighted normals given a triangle mesh's vertex positions and face topology in the half-edge data structure, we can calculate the normals. Consider a triangle <code>ABC</code>. Notice that the unit normal of the triangle is given by the normalized cross product of the vectors <code>AB</code> and <code>AC</code> because the cross product of two vectors gives a vector that is orthogonal to the plane defined by the two vectors. Furthermore, the area of the triangle is simply the magnitude of the cross product of the vectors <code>AB</code> and <code>AC</code> divided by <code>2</code>, since the magnitude of the cross product of two vectors gives the area of the parallelogram defined by the two vectors.</p>
+    
+    <p>To calculate the normal of a vertex <code>V</code>, we can sum the normals of the triangles that share the vertex <code>V</code> and average them based on the area of each triangle face. Therefore, the only procedure we need to implement is to explore all the faces that share the vertex <code>V</code>, summing the cross product of the vectors <code>AB</code> and <code>AC</code> (where <code>A</code> is the vertex <code>V</code> and <code>B</code> and <code>C</code> are the vertices of the face), and simply dividing by the sum's magnitude to get the area weighted normal of the vertex <code>V</code>. This works because the area of the triangle is already proportional to the magnitude of the cross product of the vectors <code>AB</code> and <code>AC</code>, while the directions of the normals are also gotten from the cross product.</p>
+    
+    <p>These normals can then be used with Phong shading (will not discuss in detail in this project) to calculate smooth shading on the mesh. Note that the illustrations are not the same as the ones in the Bezier section as they are created with triangles instead of bezier patches:</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>Without Area Weighted Normals (Flat Shading)</th>
+            <th>With Area Weighted Normals (Smooth Shading)</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-12.png" alt="Flat Shading"></td>
+            <td><img src="images/image-13.png" alt="Smooth Shading"></td>
+        </tr>
+    </table>
+    
+    <h3>Edge Flip</h3>
+    
+    <p>Getting into the concept of remeshing, the overarching goal is to be able to manipulate our mesh in various ways and eventually leading to subdivision and non-optimization based mesh smoothing. A simple first step in this direction is the edge flip operation. The edge flip operation is a simple operation that flips an edge in the mesh. This operation is useful for improving the quality of the mesh by reducing the number of obtuse angles in the mesh. In code, it is fairly straightforward. For every edge, we will reassign all the members pointed to by halfedges, and then vertices, and then faces. When drawn on paper, it becomes pretty clear who to reassign to what</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>Edge Flip Operation</th>
+            <th>Visualization</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-14.png" alt="Edge Flip Operation"></td>
+            <td><img src="images/image-15.png" alt="Edge Flip Visualization"></td>
+        </tr>
+    </table>
+    
+    <p>We simply reassign <code>h</code> and <code>h_t</code> to have different <code>next</code> halfedges with different outgoing vertices, and then we reassign the other 4 halfedges to account for potentially being in a different face and having a different <code>next</code> halfedge. The pseudocode for this is extremely similar to what will be shown in the <a href="#edge-split">Edge Split</a> section. We then reassign the vertices and faces to account for the new edge. Here is an example of the edge flip operation in action:</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>Before Edge Flip</th>
+            <th>After Edge Flip</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-16.png" alt="Before Edge Flip"></td>
+            <td><img src="images/image-17.png" alt="After Edge Flip"></td>
+        </tr>
+    </table>
+    
+    <h3 id="edge-split">Edge Split</h3>
+    
+    <p>The next important operation for remeshing is the edge split operation. The edge split operation is an operation that splits an edge in the mesh. Note that this actually creates a new vertex in the middle of the edge, and then creates two new faces that connect the new vertex to the two endpoints of the edge. This means that the mesh's resolution will increase. However, this only changes the topology of faces and does not change the positions of existing vertices or add vertices in positions that were not already in the surface of the mesh. In code, this is also just as straightforward as the edge flip operation, but it is way more convoluted in terms of the number of halfedges and vertices that need to be reassigned.</p>
+    
+    <img src="images/image-18.png" alt="Edge Split" class="single-image">
+    
+    <p>We use the same method as with edge flips. Consider the same triangle <code>ABC</code> and that we are splitting on edge <code>BC</code> to create a midpoint vertex <code>M</code>, which we just set to the midpoint of vertex <code>B</code> and <code>C</code>. Instead of the 6 half edges we had to reassign in the edge flip operation, we now have to reassign all 12 half edges. By looking at the diagram, we have a clear idea of what to reassign to what. The pseudocode depicting reassignment of each halfedge's members for this operation is as follows:</p>
+    
+    <pre><code>MC: Next is still CA, twin is same, vertex is now M, edge/face unchanged
+CM: Next is now MD, twin is the same, vertex is still C, edge/face unchanged
+CA: Next is AM, vertex is still C, everything else stays the same
+AB: Next is now BM, vertex is still A, face is now MAB
+BD: Next is now DM, vertex is still B, face is now MBD
+DC: Next is CM, vertex is still D, face is still BDC
+AM: Next is MC, vertex is A, Edge is AM/MA, face is ABC
+MA: Next is AB, vertex is M, Edge is MA/AM, face is MAB
+BM: Next is MA, vertex is B, Edge is BM/MB, face is MAB
+MB: Next is BD, vertex is M, Edge is BM/MB, face is MBD
+DM: Next is MB, vertex is D, Edge is DM/MB, face is MBD
+MD: Next is DC, vertex is M, Edge is DM/MB, face is BDC</code></pre>
+    
+    <p>We then reassign for the vertices, faces, and edges to point back to the correct halfedges that are now pointing to them. We will also mark the vertex <code>m</code> and new edges as <code>new</code> elements (for bookkeeping purposes). Here is an example of the edge split operation in action:</p>
+    
+    <table class="table-3-col">
+        <tr>
+            <th>Before Edge Split</th>
+            <th>After Edge Split</th>
+            <th>Edge Split + Edge Flip</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-19.png" alt="Before Edge Split"></td>
+            <td><img src="images/image-20.png" alt="After Edge Split"></td>
+            <td><img src="images/image-21.png" alt="Edge Split + Edge Flip"></td>
+        </tr>
+    </table>
+    
+    <p>Mixing it with edge flip can cause some interesting results that end up in more complex shapes, even when starting from something simple like a minimal cube triangle mesh.</p>
+    
+    <h2>Section 2 Continued: Loop Subdivision for Mesh Upsampling</h2>
+    
+    <h3>Loop Subdivision</h3>
+    
+    <p>The final operation is the loop subdivision operation, which uses the edge flip and edge split operations to upsample the mesh. The loop subdivision operation is an operation that subdivides the mesh by splitting each edge in the mesh and then smoothing the mesh by averaging the positions of the vertices. This operation is useful for increasing the resolution of the mesh and creating a smoother mesh.</p>
+    
+    <p>The loop subdivision operation has basically two steps:</p>
+    <ul>
+        <li><strong>4-1 Subdivision:</strong> For each edge in the mesh, we split the edge into two edges by creating a new vertex in the middle of the edge. Then, we flip new edges where one vertex of the edge is new and the other is old. The operation is shown below:</li>
+    </ul>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>Single Triangle Subdivision</th>
+            <th>Multiple Triangle Subdivision</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-22.png" alt="Single Triangle Subdivision"></td>
+            <td><img src="images/image-23.png" alt="Multiple Triangle Subdivision"></td>
+        </tr>
+    </table>
+    
+    <ul>
+        <li><strong>Weight Average Vertex Update:</strong> we update the position of each vertex in the mesh by averaging the positions of the neighboring vertices. To do this, we simply follow the rule of the Loop subdivision algorithm:</li>
+    </ul>
+    
+    <img src="images/image-24.png" alt="Weight Average Vertex Update" class="single-image">
+    
+    <h3>Implementation</h3>
+    
+    <p>The straightforward solution is to first perform subdivision and then update the vertices. However, we can use a more efficient approach. Our implementation first calculates the old vertex's updated positions and sets them to the vertex's <code>newPosition</code>, and then we calculate future new vertex's positions and sets them to the <code>newPosition</code> of the <em>edge</em> in which the new vertex is the midpoint. We then perform the edge split-flip operation (4-1 subdivision) to get the new vertices and edges. When we split an edge, we simply set the new midpoint vertex to be set to the edge's stored <code>newPostion</code>. Finally, we update all the old vertices' positions to the new positions. This method is easier and more efficient as it iterates over a coarse mesh rather than a finer mesh.</p>
+    
+    <p>To gain <code>newPosition</code> of old vertices, we loop over each old vertex, and perform simple half edge manipulation to get the neighboring vertices. We then calculate the new position of the vertex by following the rule of the Loop subdivision algorithm. For the positions of new vertices, we loop over each edge, then we extract the four vertices that are associated with the edge as in the image since our edge has access to halfedges. We then calculate the new position of the vertex by following the rule of the Loop subdivision algorithm for new vertices.</p>
+    
+    <p>For the split flip operation, we iterate over all edges and check that the vertices associated with the edge are old. If so, we perform the edge split operation. We then perform the edge flip on new edges where one vertex is new and the other is old. We can easily do this because the edges and vertices all have an <code>isNew</code> boolean that we can check, which is set when we perform the edge split operation.</p>
+    
+    <p>Since we have our own custom flip operation that sets the new vertices to a different position, we have created a subroutine of flipping which takes a parameter of whether we are performing loop subdivision. If so, it will set the new vertices to the stored <code>newPosition</code> of the edge, or otherwise it will set the new vertices to the midpoint of the edge as before.</p>
+    
+    <h3>Results and Discussion</h3>
+    
+    <p>Here are some results of the loop subdivision operation in action over multiple iterations of upsampling:</p>
+    
+    <table class="table-4-col">
+        <tr>
+            <th>Before Loop Subdivision</th>
+            <th>After 1 Iteration</th>
+            <th>After 2 Iterations</th>
+            <th>After 3 Iterations</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-25.png" alt="Before Loop Subdivision 1"></td>
+            <td><img src="images/image-26.png" alt="After Loop Subdivision 1 (1 iteration)"></td>
+            <td><img src="images/image-27.png" alt="After Loop Subdivision 1 (2 iterations)"></td>
+            <td><img src="images/image-28.png" alt="After Loop Subdivision 1 (3 iterations)"></td>
+        </tr>
+        <tr>
+            <td><img src="images/image-29.png" alt="Before Loop Subdivision 2"></td>
+            <td><img src="images/image-30.png" alt="After Loop Subdivision 2 (1 iteration)"></td>
+            <td><img src="images/image-31.png" alt="After Loop Subdivision 2 (2 iterations)"></td>
+            <td><img src="images/image-32.png" alt="After Loop Subdivision 2 (3 iterations)"></td>
+        </tr>
+        <tr>
+            <td><img src="images/image-33.png" alt="Before Loop Subdivision 3"></td>
+            <td><img src="images/image-34.png" alt="After Loop Subdivision 3 (1 iteration)"></td>
+            <td><img src="images/image-35.png" alt="After Loop Subdivision 3 (2 iterations)"></td>
+            <td><img src="images/image-36.png" alt="After Loop Subdivision 3 (3 iterations)"></td>
+        </tr>
+    </table>
+    
+    <p>Notice that the mesh becomes smoother and more detailed as we increase the number of iterations of the loop subdivision operation. While this can be a desired effect, it can also be undesirable that the sharp features (like the corners of the cube) are becoming less defined over iterations. This is a common problem with loop subdivision, and we can perform pre-splitting of edges to preserve sharp features.</p>
+    
+    <p>Note also that the cube mesh for example becomes asymmetrical after the first few iterations, most likely because of the fact that not all edges are symmetric in the cube. We can also perform pre-processing with edge flipos or splits to reduce this asymmetry.</p>
+    
+    <p>For instance, we can split the edges of the cube before performing loop subdivision to preserve the sharp features and maintain symmetry of the cube (in side angle):</p>
+    
+    <table class="table-4-col">
+        <tr>
+            <th>Before Loop Subdivision (after splitting)</th>
+            <th>After 1 Iteration with Pre-Splitting</th>
+            <th>After 2 Iterations with Pre-Splitting</th>
+            <th>After 3 Iterations with Pre-Splitting</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-41.png" alt="Before Loop Subdivision (after splitting)"></td>
+            <td><img src="images/image-42.png" alt="After Loop Subdivision (1 iteration) with Pre-Splitting"></td>
+            <td><img src="images/image-43.png" alt="After Loop Subdivision (2 iterations) with Pre-Splitting"></td>
+            <td><img src="images/image-44.png" alt="After Loop Subdivision (3 iterations) with Pre-Splitting"></td>
+        </tr>
+    </table>
+    
+    <h2>Conclusion</h2>
+    
+    <p>In this project, we explored Bezier curves and surfaces, triangle meshes with the half-edge data structure, and loop subdivision for mesh upsampling. We implemented De Casteljau's algorithm for Bezier curves and surfaces, area-weighted normals for triangle meshes, and the edge flip, edge split, and loop subdivision operations for triangle meshes. We also discussed the mathematical foundations and practical applications of these concepts, and provided visualizations of the results of these operations.</p>
+</body>
+</html>
