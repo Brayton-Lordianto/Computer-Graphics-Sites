@@ -84,7 +84,7 @@
 <body>
     <h1>Bezier Curves and Surfaces, Triangle Meshes and Loop Subdivision</h1>
     <blockquote>
-        <p>Brayton Lordianto and Max Wilcoxson (Team Vis10n Pro)</p>
+        <p>Brayton Lordianto and Max Wilcoxson (Team Vis10nPro)</p>
     </blockquote>
 
     <p><a href="https://cs184.eecs.berkeley.edu/sp25/hw/hw2/">Project Specs</a></p>
@@ -101,30 +101,34 @@
     
     <p>A bezier curve is a parametric curve that is defined by a set of control points. Given these control points, we can interpolate a curve that is guided by the control points, allowing for smooth curves to be created. Bezier surfaces are an extension of bezier curves, where we can create a surface by interpolating a set of control points. This is extremely useful in computer graphics, as it allows us to create smooth surfaces of meshes defined by a set of control points.</p>
     
-    <p>For instance, the following <code>5</code> 2D control points</p>
+    <p>For instance, the following <code>6</code> 2D control points</p>
     
-    <pre><code>0.200 0.350   0.300 0.600   0.500 0.750   0.700 0.450  1.000 0.900</code></pre>
+    <pre><code>0.200 0.350   0.300 0.400   0.375 0.55   0.500 0.750   0.700 0.450  1.000 0.900</code></pre>
     
     <p>can be used to create the following bezier curve</p>
     
-    <img src="images/image.png" alt="Bezier Curve" class="single-image">
+    <img src="images/image-0.png" alt="Bezier Curve" class="single-image">
     
     <h3>De Casteljau's Algorithm</h3>
     
     <p>The methodology for creating a bezier curve is very simple -- it is just a sequence of linear interpolations between the control points. We can use the De Casteljau's algorithm to calculate the points on the curve. The algorithm first calculates the linear interpolation between each pair of control points, and then calculates the linear interpolation between the resulting points, and so on. Note that this will result in one less resulting point than the inputs it interpolated on. This process is repeated until we have a single point, which is the point on the bezier curve. This is then done for a set of <code>t</code> values we use for linear interpolation that range from <code>0</code> to <code>1</code>. Consider <code>t = 0.5</code> for the above example, where the new blue points are the linear interpolations after every iteration, and the red point is the resulting point that gets drawn on the curve:</p>
     
-    <table class="table-4-col">
+    <table class="table-6-col">
         <tr>
+            <th>Iteration 0</th>
             <th>Iteration 1</th>
             <th>Iteration 2</th>
             <th>Iteration 3</th>
             <th>Iteration 4</th>
+            <th>Iteration 5</th>
         </tr>
         <tr>
-            <td><img src="images/image-1.png" alt="Iteration 1"></td>
-            <td><img src="images/image-2.png" alt="Iteration 2"></td>
-            <td><img src="images/image-3.png" alt="Iteration 3"></td>
-            <td><img src="images/image-4.png" alt="Iteration 4"></td>
+            <td><img src="images/ITER0.png" alt="Iteration 0"></td>
+            <td><img src="images/ITER1.png" alt="Iteration 1"></td>
+            <td><img src="images/ITER2.png" alt="Iteration 2"></td>
+            <td><img src="images/ITER3.png" alt="Iteration 3"></td>
+            <td><img src="images/ITER4.png" alt="Iteration 4"></td>
+            <td><img src="images/ITER5.png" alt="Iteration 5"></td>
         </tr>
     </table>
     
