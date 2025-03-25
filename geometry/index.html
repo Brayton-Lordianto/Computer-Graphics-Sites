@@ -84,7 +84,7 @@
 <body>
     <h1>Bezier Curves and Surfaces, Triangle Meshes and Loop Subdivision</h1>
     <blockquote>
-        <p>Brayton Lordianto and Max Wilcoxson (Team Vis10n Pro)</p>
+        <p>Brayton Lordianto and Max Wilcoxson (Team Vis10nPro)</p>
     </blockquote>
 
     <p><a href="https://cs184.eecs.berkeley.edu/sp25/hw/hw2/">Project Specs</a></p>
@@ -101,32 +101,39 @@
     
     <p>A bezier curve is a parametric curve that is defined by a set of control points. Given these control points, we can interpolate a curve that is guided by the control points, allowing for smooth curves to be created. Bezier surfaces are an extension of bezier curves, where we can create a surface by interpolating a set of control points. This is extremely useful in computer graphics, as it allows us to create smooth surfaces of meshes defined by a set of control points.</p>
     
-    <p>For instance, the following <code>5</code> 2D control points</p>
+    <p>For instance, the following <code>6</code> 2D control points</p>
     
-    <pre><code>0.200 0.350   0.300 0.600   0.500 0.750   0.700 0.450  1.000 0.900</code></pre>
+    <pre><code>0.200 0.350   0.300 0.400   0.375 0.55   0.500 0.750   0.700 0.450  1.000 0.900</code></pre>
     
     <p>can be used to create the following bezier curve</p>
     
-    <img src="images/image.png" alt="Bezier Curve" class="single-image">
+    <img src="images/image-0.png" alt="Bezier Curve" class="single-image">
     
     <h3>De Casteljau's Algorithm</h3>
     
     <p>The methodology for creating a bezier curve is very simple -- it is just a sequence of linear interpolations between the control points. We can use the De Casteljau's algorithm to calculate the points on the curve. The algorithm first calculates the linear interpolation between each pair of control points, and then calculates the linear interpolation between the resulting points, and so on. Note that this will result in one less resulting point than the inputs it interpolated on. This process is repeated until we have a single point, which is the point on the bezier curve. This is then done for a set of <code>t</code> values we use for linear interpolation that range from <code>0</code> to <code>1</code>. Consider <code>t = 0.5</code> for the above example, where the new blue points are the linear interpolations after every iteration, and the red point is the resulting point that gets drawn on the curve:</p>
     
-    <table class="table-4-col">
+    <table class="table-6-col">
         <tr>
+            <th>Iteration 0</th>
             <th>Iteration 1</th>
             <th>Iteration 2</th>
             <th>Iteration 3</th>
             <th>Iteration 4</th>
+            <th>Iteration 5</th>
         </tr>
         <tr>
-            <td><img src="images/image-1.png" alt="Iteration 1"></td>
-            <td><img src="images/image-2.png" alt="Iteration 2"></td>
-            <td><img src="images/image-3.png" alt="Iteration 3"></td>
-            <td><img src="images/image-4.png" alt="Iteration 4"></td>
+            <td><img src="images/ITER0.png" alt="Iteration 0"></td>
+            <td><img src="images/ITER1.png" alt="Iteration 1"></td>
+            <td><img src="images/ITER2.png" alt="Iteration 2"></td>
+            <td><img src="images/ITER3.png" alt="Iteration 3"></td>
+            <td><img src="images/ITER4.png" alt="Iteration 4"></td>
+            <td><img src="images/ITER5.png" alt="Iteration 5"></td>
         </tr>
     </table>
+    The completed curve for these control points is displayed above. We can also move one of the control points and change the value of t, giving the following curve: 
+
+    <img src="images/ITER5-DIF.png" alt="Bezier Curve" class="single-image">
     
     <h3>Bezier Surfaces</h3>
     
@@ -166,9 +173,9 @@
     
     <p>One of the most important operations we can perform on a triangle mesh is to calculate the normals of the vertices. The normals of the vertices are important for shading and rendering the mesh, as they determine how light interacts with the surface of the mesh. To implement the area weighted normals given a triangle mesh's vertex positions and face topology in the half-edge data structure, we can calculate the normals. Consider a triangle <code>ABC</code>. Notice that the unit normal of the triangle is given by the normalized cross product of the vectors <code>AB</code> and <code>AC</code> because the cross product of two vectors gives a vector that is orthogonal to the plane defined by the two vectors. Furthermore, the area of the triangle is simply the magnitude of the cross product of the vectors <code>AB</code> and <code>AC</code> divided by <code>2</code>, since the magnitude of the cross product of two vectors gives the area of the parallelogram defined by the two vectors.</p>
     
-    <p>To calculate the normal of a vertex <code>V</code>, we can sum the normals of the triangles that share the vertex <code>V</code> and average them based on the area of each triangle face. Therefore, the only procedure we need to implement is to explore all the faces that share the vertex <code>V</code>, summing the cross product of the vectors <code>AB</code> and <code>AC</code> (where <code>A</code> is the vertex <code>V</code> and <code>B</code> and <code>C</code> are the vertices of the face), and simply dividing by the sum's magnitude to get the area weighted normal of the vertex <code>V</code>. This works because the area of the triangle is already proportional to the magnitude of the cross product of the vectors <code>AB</code> and <code>AC</code>, while the directions of the normals are also gotten from the cross product.</p>
+    <p>To calculate the normal of a vertex <code>V</code>, we can sum the normals of the triangles that share the vertex <code>V</code> and average them based on the area of each triangle face. Therefore, the only procedure we need to implement is to explore all the faces that share the vertex <code>V</code>, summing the cross product of the vectors <code>AB</code> and <code>AC</code> (where <code>A</code> is the vertex <code>V</code> and <code>B</code> and <code>C</code> are the vertices of the face), and simply dividing by the sum's magnitude to get the area weighted normal of the vertex <code>V</code>. This works because the area of the triangle is already proportional to the magnitude of the cross product of the vectors <code>AB</code> and <code>AC</code>, while the directions of the normals are also given from the cross product.</p>
     
-    <p>These normals can then be used with Phong shading (will not discuss in detail in this project) to calculate smooth shading on the mesh. Note that the illustrations are not the same as the ones in the Bezier section as they are created with triangles instead of bezier patches:</p>
+    <p>These normals can then be used with Phong shading (which is not discussed in detail in this project) to calculate smooth shading on the mesh. Note that the illustrations are not the same as the ones in the Bezier section as they are created with triangles instead of bezier patches:</p>
     
     <table class="table-2-col">
         <tr>
@@ -183,7 +190,7 @@
     
     <h3>Edge Flip</h3>
     
-    <p>Getting into the concept of remeshing, the overarching goal is to be able to manipulate our mesh in various ways and eventually leading to subdivision and non-optimization based mesh smoothing. A simple first step in this direction is the edge flip operation. The edge flip operation is a simple operation that flips an edge in the mesh. This operation is useful for improving the quality of the mesh by reducing the number of obtuse angles in the mesh. In code, it is fairly straightforward. For every edge, we will reassign all the members pointed to by halfedges, and then vertices, and then faces. When drawn on paper, it becomes pretty clear who to reassign to what</p>
+    <p>Getting into the concept of remeshing, the overarching goal is to be able to manipulate our mesh in various ways and eventually leading to subdivision and non-optimization based mesh smoothing. A simple first step in this direction is the edge flip operation. The edge flip operation is a simple operation that flips an edge in the mesh. This operation is useful for improving the quality of the mesh by reducing the number of obtuse angles in the mesh. In code, it is fairly straightforward. For every edge, we will reassign all the members pointed to by halfedges, and then vertices, and then faces. When drawn on paper, the exact reassignments become more clear. </p>
     
     <table class="table-2-col">
         <tr>
@@ -211,7 +218,7 @@
     
     <h3 id="edge-split">Edge Split</h3>
     
-    <p>The next important operation for remeshing is the edge split operation. The edge split operation is an operation that splits an edge in the mesh. Note that this actually creates a new vertex in the middle of the edge, and then creates two new faces that connect the new vertex to the two endpoints of the edge. This means that the mesh's resolution will increase. However, this only changes the topology of faces and does not change the positions of existing vertices or add vertices in positions that were not already in the surface of the mesh. In code, this is also just as straightforward as the edge flip operation, but it is way more convoluted in terms of the number of halfedges and vertices that need to be reassigned.</p>
+    <p>The next important operation for remeshing is the edge split operation. The edge split operation is an operation that splits an edge in the mesh. Note that this actually creates a new vertex in the middle of the edge, and then creates two new faces that connect the new vertex to the two endpoints of the edge. This means that the mesh's resolution will increase. However, this only changes the topology of faces and does not change the positions of existing vertices or add vertices in positions that were not already edges in the mesh. In code, this is also just as straightforward as the edge flip operation, but it is way more convoluted in terms of the number of halfedges and vertices that need to be reassigned.</p>
     
     <img src="images/image-18.png" alt="Edge Split" class="single-image">
     
