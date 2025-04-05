@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METALWAVE: VR Metal Wavefront Path Tracer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding:.2px 4px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .table-3-col td img, .table-4-col td img, .table-2-col td img {
+            width: calc(100% - 10px);
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .single-image {
+            max-width: 800px;
+            margin: 20px auto;
+            display: block;
+        }
+        .math-equation {
+            overflow-x: auto;
+            padding: 10px 0;
+            text-align: center;
+        }
+        blockquote {
+            margin: 0;
+            padding: 10px 20px;
+            background-color: #f9f9f9;
+            border-left: 5px solid #ddd;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .author-list {
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.0/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <h1>METALWAVE: VR Metal Wavefront Path Tracer Lens Simulation for Aberrated Vision</h1>
+    
+    <div class="author-list">
+        <p>Brayton Lordianto, Han Li, William Wu, Ricardo Blanco</p>
+        <p>Link to webpage: <a href="https://brayton-lordianto.github.io/Computer-Graphics-Sites/gpu-path-tracing">https://brayton-lordianto.github.io/Computer-Graphics-Sites/gpu-path-tracing</a></p>
+    </div>
+    
+    <h2>Summary</h2>
+    
+    <p>Our project simulates visual impairments like myopia, hyperopia, and astigmatism in virtual reality using the Apple Vision Pro. The system employs GPU-accelerated path tracing through Metal Shading Language to accurately model light propagation through impaired lenses, creating physically accurate visualizations rather than using traditional post-processing techniques. By implementing wavefront path tracing optimization and custom anisotropic lens models, METALWAVE aims to provide an immersive experience that helps users understand how individuals with visual impairments perceive the world.</p>
+    
+    <h2>Table of Contents</h2>
+    
+    <ol>
+        <li><a href="#problem-description">Problem Description</a></li>
+        <li><a href="#goals-and-deliverables">Goals and Deliverables</a>
+            <ul>
+                <li><a href="#visual-results">Visual Results</a></li>
+                <li><a href="#benchmarking-metrics">Benchmarking Metrics</a></li>
+                <li><a href="#scope-for-further-development">Scope for Further Development</a></li>
+            </ul>
+        </li>
+        <li><a href="#schedule">Schedule</a></li>
+        <li><a href="#resources">Resources</a>
+            <ul>
+                <li><a href="#papers">Papers</a></li>
+                <li><a href="#systems">Systems</a></li>
+            </ul>
+        </li>
+    </ol>
+    
+    <h2 id="problem-description">Problem Description</h2>
+    
+    <p>The goal of this project is to simulate aberrated human vision from lens impairments on VR systems, such as myopia, hyperopia, and astigmatism. We will be using the Apple Vision Pro as our VR medium. Due to not being able to directly interface with the fragment shader on the Vision Pro, we will be trying to simulate using a screen mesh running a fragment shader that follows the user's head movement. On the screen, our goal is to display what real-life scenes with light sources look like for people with said vision impairments. There are currently no existing solutions to view these visual impairments in a high quality, 3D setting like the Vision Pro with proper path-tracing, and we hope to bridge this gap so that anyone will be able to view and relate to how people with said impairments see the world. Existing previous solutions use post-processing convolutions, which are less visually accurate, and these solutions do not exist specifically on a high-end device like the Vision Pro.</p>
+    
+    <p>To simulate these visual impairments, we have found that an accurate way to do this is by adding a lens fixed in front of the camera and performing path-tracing through it. To simulate accurate vision impairments such as astigmatism, we will be implementing anisotropic lenses to accurately create multiple focal points.</p>
+    
+    <p>To do this on the Vision Pro, we will perform path tracing on the screen fragment shader, which will perform it all with <strong>Metal (MSL)</strong> on the <strong>GPU</strong>. In addition, we hope to use <strong>Wavefront Path Tracing</strong>, a gpu path-tracing optimization algorithm in order to effectively utilize the GPU.</p>
+    
+    <h2 id="goals-and-deliverables">Goals and Deliverables</h2>
+    
+    <p>First of all, we will want to see that we are able to display a mesh with different materials to see if we can see an interesting scene. Our hope is that we can run a <code>usdz</code> mesh file with the material shaders that it was encoded with correctly.</p>
+    
+    <p>Then, our next step is to create a path tracer from scratch on the Vision Pro on the GPU. To verify this, we can run a model with path tracing. Secondly, we will then add support for adding lenses of different types that we need for our purposes. Thirdly, we will have the rays refract through the lens physically accurately, and then perform ray tracing from there. We can test this by attempting to simulate the impairments discussed with the parameters of the lens for each impairment.</p>
+    
+    <h3 id="visual-results">Visual Results</h3>
+    
+    <p>Our visual results will consist of <strong>short videos/gifs</strong> of some scenes in normal vision and then in cases of specific visual impairments from myopia, hyperopia, and astigmatism for each scene. We will have a table for all of the impairments and some examples.</p>
+    
+    <h3 id="benchmarking-metrics">Benchmarking Metrics</h3>
+    
+    <ol>
+        <li>We will test for the efficiency of our system before and after wavefront optimization.</li>
+        <li>We will also test for the quality of our system by checking with ground truth images from the papers regarding images in visual impairment contexts.</li>
+    </ol>
+    
+    <h3 id="scope-for-further-development">Scope for Further Development</h3>
+    
+    <p>Our stretch goal is to see if we can do wavelength-based path tracing, which can give even more physically accurate results for the scene as well as for simulating visual impairments.</p>
+    
+    <h2 id="schedule">Schedule</h2>
+    
+    <ul>
+        <li>~5 days to familiarize ourselves with Metal workflow</li>
+        <li>~20 days to build path tracer</li>
+        <li>~5 days to make lenses</li>
+    </ul>
+    
+    <ol>
+        <li>Week 1
+            <ol>
+                <li>Check how simple ray tracing with a screen works when you move your head</li>
+                <li>Familiarize ourselves with Metal</li>
+                <li>Research lenses and wavefront gpu path tracing</li>
+                <li>Research USDZ and how to interface with it in Metal</li>
+            </ol>
+        </li>
+        <li>Week 2 - 3.5
+            <ol>
+                <li>Implement wavefront gpu path tracing</li>
+                <li>Implement USDZ mesh and scene descriptions and/or HDRIs</li>
+            </ol>
+        </li>
+        <li>Week 4
+            <ol>
+                <li>Implement anisotropic lens</li>
+                <li>Report Paper Writeup</li>
+            </ol>
+        </li>
+    </ol>
+    
+    <h2 id="resources">Resources</h2>
+    
+    <h3 id="papers">Papers</h3>
+    
+    <ul>
+        <li><a href="https://people.eecs.berkeley.edu/~barsky/VisRendPapers/vrr1.pdf">Vision-Realistic Rendering: Simulation of the Scanned Foveal Image from Wavefront Data of Human Subjects</a></li>
+        <li><a href="https://niessnerlab.org/papers/2013/0temporal/niessner2013temporal.pdf">Real-time Simulation of Human Vision using Temporal Compositing with CUDA on the GPU</a></li>
+        <li><a href="https://graphics.stanford.edu/~niessner/papers/2012/0eyeglass/niessner2012eyeglass.pdf">Real-time Simulation and Visualization of Human Vision through Eyeglasses on the GPU</a></li>
+        <li><a href="https://discovery.ucl.ac.uk/id/eprint/10065529/1/PJ_vr_ieee_v6_nonblind.pdf">Degraded Reality: Using VR/AR to simulate visual impairments</a></li>
+        <li><a href="https://link.springer.com/article/10.1007/s10055-024-00987-0">Simulating vision impairment in virtual reality: a comparison of visual task performance with real and simulated tunnel vision</a></li>
+        <li><a href="https://ieeexplore.ieee.org/document/9090438">XREye: Simulating Visual Impairments in Eye-Tracked XR</a></li>
+        <li><a href="https://www.researchgate.net/publication/329259460_Realistic_simulation_of_progressive_vision_diseases_in_virtual_reality">Realistic simulation of progressive vision diseases in virtual reality</a></li>
+        <li><a href="https://ieeexplore.ieee.org/document/6165430">Simulating visual impairments using the Unreal Engine 3 game engine</a></li>
+        <li><a href="https://svi.cps.utexas.edu/ETRA2002.pdf">Real-time Simulation of Arbitrary Visual Fields</a></li>
+        <li><a href="https://vciba.springeropen.com/articles/10.1186/s42492-023-00132-9">Rendering algorithms for aberrated human vision simulation</a></li>
+        <li><a href="https://arxiv.org/html/2312.00692v1">VisionaryVR: An Optical Simulation Tool for Evaluating and Optimizing Vision Correction Solutions in Virtual Reality</a></li>
+        <li><a href="https://research.nvidia.com/sites/default/files/pubs/2013-07_Megakernels-Considered-Harmful/laine2013hpg_paper.pdf">Megakernels Considered Harmful: Wavefront Path Tracing on GPUs</a></li>
+        <li><a href="https://jacco.ompf2.com/2019/07/18/wavefront-path-tracing/">Wavefront Path Tracing</a></li>
+    </ul>
+    
+    <h3 id="systems">Systems</h3>
+    
+    <ul>
+        <li>Apple Vision Pro</li>
+        <li>Metal (framework)</li>
+        <li>USDZ</li>
+    </ul>
