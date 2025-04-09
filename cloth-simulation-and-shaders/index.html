@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloth Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .table-3-col td img, .table-4-col td img, .table-2-col td img {
+            width: calc(100% - 10px);
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .single-image {
+            max-width: 800px;
+            margin: 20px auto;
+            display: block;
+        }
+        .math-equation {
+            overflow-x: auto;
+            padding: 10px 0;
+            text-align: center;
+        }
+        blockquote {
+            margin: 0;
+            padding: 10px 20px;
+            background-color: #f9f9f9;
+            border-left: 5px solid #ddd;
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.0/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <h1>Assignment 4: Cloth Simulation</h1>
+    
+    <p>You can view the spec for this project at <a href="https://cs184.eecs.berkeley.edu/sp25/hw/hw4/">Assignment 4: Cloth Simulation</a>.</p>
+    
+    <h2>Overview</h2>
+    
+    <p>In our <code>C++</code> cloth simulation project, we implement a physically-based simulation of cloth and sphere objects and planes using a mass-spring system, simulating realistic behavior under forces through numerical integration. We handle collisions with external objects and self-collisions using spatial hashing for efficiency. We also implement advanced rendering techniques including Blinn-Phong shading, texture mapping, bump and displacement mapping, and environment mapping, and a creative bubble effect, in <code>GLSL</code> vertex and fragment shaders.</p>
+    
+    <h2 id="table-of-contents">Table of Contents</h2>
+    
+    <ol>
+        <li><a href="#masses-and-springs">Masses and Springs</a></li>
+        <li><a href="#simulation-via-numerical-integration">Simulation via Numerical Verlet Integration</a>
+            <ul>
+                <li><a href="#results-simulation">Results</a></li>
+            </ul>
+        </li>
+        <li><a href="#handling-collisions-with-other-objects">Handling Collisions with Other Objects</a>
+            <ul>
+                <li><a href="#results-collisions">Results</a></li>
+            </ul>
+        </li>
+        <li><a href="#handling-self-collisions">Handling Self Collisions</a>
+            <ul>
+                <li><a href="#spatial-hashing">Spatial Hashing</a></li>
+                <li><a href="#results-and-discussion-self-collisions">Results and Discussion</a></li>
+            </ul>
+        </li>
+        <li><a href="#shaders">Shaders</a>
+            <ul>
+                <li><a href="#blinn-phong-shading">Blinn-Phong Shading</a></li>
+                <li><a href="#texture-mapping">Texture Mapping</a></li>
+                <li><a href="#displacement-and-bump-mapping">Displacement and Bump Mapping</a>
+                    <ul>
+                        <li><a href="#discussion">Discussion</a></li>
+                        <li><a href="#changing-sphere-mesh-coarseness">Changing Sphere Mesh Coarseness</a></li>
+                    </ul>
+                </li>
+                <li><a href="#environment-mapping">Environment Mapping</a></li>
+                <li><a href="#bubble-shader">Bubble Shader</a></li>
+            </ul>
+        </li>
+    </ol>
+    
+    <h2 id="masses-and-springs">Masses and Springs</h2>
+    <p><a href="#table-of-contents">Back to Table of Contents</a></p>
+    
+    <p>Throughout the history of computer graphics, many different cloth models have been developed for simulation. Of these, one of the simplest models uses a system of point masses and springs. The cloth is essentially a grid of point masses, where each mass is connected to its neighbors by springs. Essentially, we are representing a cloth mesh from point mass vertices and spring edges, with each spring being one of 3 types: structural, shear, and bending.</p>
+    
+    <p>To do this, we create a <code>Cloth</code> class, where given the <code>height</code> and <code>width</code> and <code>orientation</code> of the cloth, we create point masses and springs. We simply loop in the <code>x</code> and <code>y or z</code> directions (depending on the orientation) and create a point mass at interpolated positions. We then create springs defined by the following rules:</p>
+    
+    <ul>
+        <li><strong>Structural constraints</strong> exist between a point mass and the point mass to its left as well as the point mass above it.</li>
+        <li><strong>Shearing constraints</strong> exist between a point mass and the point mass to its diagonal upper left as well as the point mass to its diagonal upper right.</li>
+        <li><strong>Bending constraints</strong> exist between a point mass and the point mass two away to its left as well as the point mass two above it.</li>
+    </ul>
+    
+    <h3>Results</h3>
+    
+    <table class="table-3-col">
+        <tr>
+            <th>Cloth Mesh with All Constraints</th>
+            <th>Cloth Mesh without any <code>SHEARING</code> Constraints</th>
+            <th>Cloth Mesh With Only <code>SHEARING</code> Constraints</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-6.png" alt="Cloth with All Constraints"></td>
+            <td><img src="images/image-5.png" alt="Cloth without Shearing Constraints"></td>
+            <td><img src="images/image-7.png" alt="Cloth with Only Shearing Constraints"></td>
+        </tr>
+    </table>
+    
+    <h2 id="simulation-via-numerical-integration">Simulation via Numerical Integration</h2>
+    <p><a href="#table-of-contents">Back to Table of Contents</a></p>
+    
+    <p>To simulate the motion of the spring system that represents the cloth, we need to perform numerical integration to approximate the continuous time differential equations governing the dynamics of the system. To do this, we can discretize the integral.</p>
+    
+    <p>This first requires computing the forces acting on each pointmass at the given timestep. The force on each pointmass will be the sum of force due to external forces (gravity, etc) and spring correction forces which keep the cloth together. For external forces, the force is just <code>F = ma</code>. For spring corrective forces, the force is <code>F_s = k_s*(||p_a - p_b|| - l)</code>, where <code>k_s</code> is the spring constant. We also need to apply an additional <code>0.2</code> weight on spring corrective forces corresponding to springs which represent <code>BENDING</code> constraints, since these are weaker than <code>SHEARING</code> or <code>STRUCTURAL</code> constraints.</p>
+    
+    <p>Next, we need to use the total force computed on each pointmass to perform Verlet integration. The force computed on the point gives the acceleration. This can be used to update the position using the equation:</p>
+    
+    <p class="single-image"><img src="images/position_update.png" alt="position update equation"></p>
+    
+    <p>We only apply this equation to point mass which are not pinned.</p>
+    
+    <p>Finally, to make deformations realistic at each timestep, we apply an additional constraint on the position of each point mass. We prevent any spring from ever being over 10% of its rest length. This constraint is split between the two point mass if they are both unpinned, otherwise it is applied to the unpinned point mass.</p>
+    
+    <h3 id="results-simulation">Results</h3>
+    
+    <p>We look at the effect of three different parameters (spring constant <code>ks</code>, density, and damping) on the simulation of the falling of a cloth pinned at each corner.</p>
+    
+    <p>For the spring constant, we visually see that it changes how tight the springs are, which affects how much the cloth hangs down below the pinned corners. There is also a sense of the other effects of changing the tightness of the material on the process of its fall. We can look at two images for the resting position of two different <code>ks</code> values below:</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <td><img src="images/ks_1.png" alt="ks = 1 N/m"></td>
+            <td><img src="images/ks_100000.png" alt="ks = 100,000 N/m"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center"><code>ks = 1 N/m</code></td>
+            <td style="text-align: center"><code>ks = 100,000 N/m</code></td>
+        </tr>
+    </table>
+    
+    <p>For density, we see that changing the density value adjusts how strong the falling force is compared to the string correction forces. This makes sense, since the spring correction forces do not scale with mass, but gravity does. This allows us to see that the object with higher density falls more straight down, and also has a lower resting point than a lighter object. We include images of the final resting point of two different density clothes below:</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <td><img src="images/d_1.png" alt="density = 1 g/cm^2"></td>
+            <td><img src="images/d_100.png" alt="density = 100 g/cm^2"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center"><code>density = 1 g/cm²</code></td>
+            <td style="text-align: center"><code>density = 100 g/cm²</code></td>
+        </tr>
+    </table>
+    
+    <p>Finally, we look at the damping. The damping changes how much of the energy of the system is attenuated over time. Thus, as we would expect, with a low damping value the system takes a lot longer to come to rest. This manifests in the cloth bouncing up much more and for longer when the damping value is smaller. We visualize the first bounce peak of a small damping value and a damping value of 1 (no bounce, since all energy is lost).</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <td><img src="images/damp_011494.png" alt="damping = 0.011"></td>
+            <td><img src="images/damp_1.png" alt="damping = 1"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center"><code>damping = 0.011</code></td>
+            <td style="text-align: center"><code>damping = 1</code></td>
+        </tr>
+    </table>
+    
+    <p>Finally, we can look at the shaded cloth (with surface normals) in the final resting state of the cloth with default parameters.</p>
+    
+    <p class="single-image"><img src="images/shaded_pt_2.png" alt="Shaded cloth"></p>
+    
+    <h2 id="handling-collisions-with-other-objects">Handling Collisions with Other Objects</h2>
+    <p><a href="#table-of-contents">Back to Table of Contents</a></p>
+    
+    <p>We need to handle collisions of the cloth with other objects effectively. In this project, we model the behavior of the cloth with planes and spheres. In either case, we need to detect if there is a collision, and then if so, move the pointmass backwards along the direction of its motion such that it is outside the bounds of the object.</p>
+    
+    <p>For the sphere, we can detect a collision if the pointmass's distance from the center of the sphere is less than the radius of the sphere. We can determine the intersection point by subtracting the center of the sphere from the <code>last_position</code> value, scaling this vector to have length equal to the radius of the sphere, and then finally adding this vector to the origin of the sphere. The correction vector is the difference between this intersection point and the <code>last_position</code>. Finally, we compute the new, adjusted <code>position</code> value by adding the correction vector to <code>last_position</code>, and finally multiplying by <code>(1 - f)</code> to account for friction.</p>
+    
+    <p>For the plane, the steps are similar. We detect a collision by first computing the distance of <code>last_position</code> and <code>position</code> from the plane, and then checking if the product of these distances are negative. If so, then the point crossed the plane, and thus there was a collision. The tangent point is the <code>position</code> vector minus the distance of <code>position</code> from the plane times the normal vector. We move this tangent point <code>SURFACE_OFFSET</code> in the direction of the normal moving towards where the point mass came from to avoid potential numerical precision issues. Then, we compute the correction vector by taking the difference of this intersection point and <code>last_position</code>. Finally, we add this vector to <code>last_position</code>, and finally multiply by <code>(1 - f)</code> to account for friction.</p>
+    
+    <h3 id="results-collisions">Results</h3>
+    
+    <p>First, we can look at the behavior of the cloth falling onto a sphere. We can change the spring constant and see how this changes the final resting position and falling dynamics:</p>
+    
+    <table class="table-3-col">
+        <tr>
+            <td><img src="images/ks_500_sphere.png" alt="ks = 500 N/m"></td>
+            <td><img src="images/ks_5000_sphere.png" alt="ks = 5000 N/m"></td>
+            <td><img src="images/ks_50000_sphere.png" alt="ks = 50000 N/m"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center"><code>ks = 500 N/m</code></td>
+            <td style="text-align: center"><code>ks = 5000 N/m</code></td>
+            <td style="text-align: center"><code>ks = 50000 N/m</code></td>
+        </tr>
+    </table>
+    
+    <p>We can see that as we might expect, the stronger the springs are (higher the spring constant is), the more rigid the cloth is and the less wrinkles appear when it is draped on the sphere.</p>
+    
+    <p>We can also visualize the collision of the cloth with the plane. It's final resting point is simply laying flat on the plane, as one would expect.</p>
+    
+    <p class="single-image"><img src="images/col_plane.png" alt="Cloth on plane"></p>
+    
+    <h2 id="handling-self-collisions">Handling Self Collisions</h2>
+    <p><a href="#table-of-contents">Back to Table of Contents</a></p>
+    
+    <p>Our cloth can collide with other objects, but it cannot collide with itself. As a result, if we have a scene in which the cloth falls on itself or otherwise folds on itself, the cloth will clip through and behave strangely. To handle this, we need to check for self-collisions. The high-level idea is that, for any two point masses, we first check if they are close enough to collide. We use the collision distance \(2 \cdot th\) where \(th\) is the thickness of the cloth. If they are close enough, the point mass will contribute a correction vector to the other point mass. At a single simulation step, we can check for all pairs of point masses and compute the total correction vector for each point mass and then take it's average and apply it to the point mass to get it's new position. In this way, given point mass <code>i</code>, we can compute the correction vector as</p>
+    
+    <div class="math-equation">
+        \[c_i = \frac{1}{n} \sum_{j=1}^{n} c_{ij}\]
+    </div>
+    
+    <p>where \(c_{ij}\) is the correction vector for point mass <code>i</code> from all point masses <code>j</code> that are within \(2 \cdot th\) of point mass <code>i</code>, and \(n\) being the number of valid point masses <code>j</code>. We can also scale down the correction vector, essentially scaling down the number of <code>simulation_steps</code> we are running.</p>
+    
+    <h3 id="spatial-hashing">Spatial Hashing</h3>
+    
+    <p>Checking all pairs of point masses is expensive, and we can use a spatial hashing technique to speed this up. The idea is to divide the whole world space into a grid of cells of dimensions \(w \times h \times t\), where \(w = \frac{3 \cdot \text{width}}{\text{num\_width\_points}}\), \(h = \frac{3 \cdot \text{height}}{\text{num\_height\_points}}\), and \(t = \max(w, h)\). The constant 3 here is somewhat empirically chosen to improve the accuracy of the spatial hashing algorithm. We then create a spatial map that maps each point mass to the cell it is in. Mathematically, this construction is such that the collision distance \(2 \cdot th\) is less than the distance of one whole cell. This means that two points can only collide if they are in the same or exactly adjacent cells. We can then check for collisions by checking the point mass's cell and the adjacent cells, which reduces the number of checks we need to do.</p>
+    
+    <h3 id="results-and-discussion-self-collisions">Results and Discussion</h3>
+    
+    <p>Here is an example of the cloth falling on itself. The first image shows the cloth at an early stage of self-collision, and the second image shows the cloth at a more restful state.</p>
+    
+    <table class="table-4-col">
+        <tr>
+            <th>t = 0</th>
+            <th>t = 1</th>
+            <th>t = 2</th>
+            <th>t = 2 (zoomed in)</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-31.png" alt="t = 0"></td>
+            <td><img src="images/image-32.png" alt="t = 1"></td>
+            <td><img src="images/image-33.png" alt="t = 2"></td>
+            <td><img src="images/image-34.png" alt="t = 2 (zoomed in)"></td>
+        </tr>
+    </table>
+    
+    <p>The above images were taken with <code>density = 15 g/cm²</code>, <code>ks = 5000 N/m</code>. When we vary the density as well as ks, we can see that the cloth with a higher density falls more straight down, and also has a lower resting point than a lighter object. The cloth with a higher spring constant is also more rigid and has less wrinkles as it falls.</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>density = 50 g/cm² rest state</th>
+            <th>ks = 50000 N/m</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-35.png" alt="density = 50 g/cm²"></td>
+            <td><img src="images/image-36.png" alt="ks = 50000 N/m"></td>
+        </tr>
+    </table>
+    
+    <h2 id="shaders">Shaders</h2>
+    <p><a href="#table-of-contents">Back to Table of Contents</a></p>
+    
+    <p>At the moment, the cloth is rendered as a flat color. To allow for more interesting visualizations, we will implement different lighting models in shaders that the cloth can be rendered with. To do this, we simply allow for the cloth mesh to use different shaders that are passed in as arguments.</p>
+    
+    <p>In the past, people used scan lines to render computer graphics, but this was slow and inefficient. The modern way to render computer graphics is to use the GPU and run it with a shader. A shader is a small program that runs on the GPU, and the two shaders that we program in this project are the <code>GLSL</code> vertex shader and the fragment shader. A <strong>vertex shader</strong> is a program that takes in vertices, transforms them to screen space, and outputs the transformed vertices to the fragment shader. A <strong>fragment shader</strong> is a program that takes in interpolated vertex data and outputs the color of the pixel/fragment. In the case of our cloth simulation, the vertex shader will take in the vertex positions and normal directions of the cloth mesh, and we can apply transformations to them or even augmentations to the normals to manipulate material effects. The fragment shader runs on every fragment of the cloth mesh, and we can run lighting models on the interpolated vertex data to determine the color of the pixel.</p>
+    
+    <p>In this section, we will implement the following shaders:</p>
+    <ul>
+        <li><strong>Blinn Phong Shading</strong></li>
+        <li><strong>Texture Mapping</strong></li>
+        <li><strong>Displacement and Bump Mapping</strong></li>
+        <li><strong>Environment Mapping</strong></li>
+    </ul>
+    
+    <h3 id="blinn-phong-shading">Blinn Phong Shading</h3>
+    
+    <p>The Blinn-Phong shading model is a modification of the Phong shading model. The Phong shading model is an approximation of the way light interacts with surfaces. It is a lighting model that assumes lighting effects can be approximated by the superposition or addition of three components depending on the material: ambient, diffuse, and specular. The ambient component is the light that is scattered in all directions and can be thought of as the base color of the object. The diffuse component is the light that is scattered in all directions and can be thought of as the color of the object when lit from a single direction. The specular component is the light that is reflected in a single direction and are essentially the highlights on the object. The modification to the Phong shading model is that the specular component is calculated using a halfway vector instead of the reflection vector. The formulation for the Blinn-Phong shading model is as follows:</p>
+    
+    <p class="single-image"><img src="images/image-8.png" alt="Blinn-Phong equation"></p>
+    
+    <div class="math-equation">
+        \[L = k_a I_a + k_d I_d (N \cdot L) + k_s I_s (N \cdot H)^{\alpha}\]
+    </div>
+    
+    <p>Where:</p>
+    <ul>
+        <li>\(L\) is the color of the pixel</li>
+        <li>\(k_a\) is the ambient coefficient</li>
+        <li>\(I_a\) is the ambient light intensity</li>
+        <li>\(k_d\) is the diffuse coefficient</li>
+        <li>\(I_d\) is the diffuse light intensity</li>
+        <li>\(k_s\) is the specular coefficient</li>
+        <li>\(I_s\) is the specular light intensity</li>
+        <li>\(N\) is the normal vector</li>
+        <li>\(L\) is the light vector</li>
+        <li>\(\alpha\) is the shininess coefficient</li>
+        <li>\(I\) is the light intensity</li>
+        <li>\(V\) is the view vector</li>
+        <li>\(H\) is the halfway vector, which is the normalized sum of the light vector and the view vector</li>
+    </ul>
+    
+    <p>Here is an example of the cloth scene with the Blinn-Phong shading model applied:</p>
+    
+    <table class="table-3-col">
+        <tr>
+            <td><img src="images/image-10.png" alt="Diffuse Shading"></td>
+            <td><img src="images/image-12.png" alt="Ambient Shading"></td>
+            <td><img src="images/image-9.png" alt="Specular Shading"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center">Diffuse Shading</td>
+            <td style="text-align: center">Ambient Shading</td>
+            <td style="text-align: center">Specular Shading</td>
+        </tr>
+    </table>
+    
+    <p class="single-image"><img src="images/image-11.png" alt="Blinn-Phong Shading"></p>
+    <p style="text-align: center">Blinn-Phong Shading</p>
+    
+    <h3 id="texture-mapping">Texture Mapping</h3>
+    
+    <p>As input to the fragment shader, we can also pass in a texture and the <code>uv</code> coordinates of any given fragment. With these <code>uv</code> coordinates, we can sample the texture at the given coordinates and use the color of the texture at that point. This is simple using the <code>texture(sampler2D tex, vec2 uv)</code> function in GLSL. Below is an example of the cloth scene with texture mapping applied on some textures.</p>
+    
+    <table class="table-3-col">
+        <tr>
+            <th>Grass Texture</th>
+            <th>Cartoon Texture</th>
+            <th>Fabric Texture</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-13.png" alt="Grass Texture"></td>
+            <td><img src="images/image-14.png" alt="Cartoon Texture"></td>
+            <td><img src="images/image-15.png" alt="Fabric Texture"></td>
+        </tr>
+    </table>
+    
+    <h3 id="displacement-and-bump-mapping">Displacement and Bump Mapping</h3>
+    
+    <p><em>Renders for this section use 128x128 resolution of objects unless otherwise stated</em></p>
+    
+    <p>Bump mapping is a technique used to add detail to a surface by modifying the surface normals when computing lighting effects. This is done by using a height map that contains the height information for each pixel. To do this, we first create a <strong>tangent-bitangent-normal (TBN) matrix</strong> which transforms a vector in object space into model space. To understand how this is possible, we need to understand that every vertex is given a normal vector perpendicular to the surface of the object and a tangent vector in the direction of the surface. These two vectors are then interpolated across the fragments of the object in the fragment shader. We get the matrix \(TBN = [t \space b \space n]\), where \(n\) is the input normal vector, \(t\) is the tangent vector inputted to the shader, and \(b = n \times t\). We then apply this shader on both the cloth mesh and sphere mesh in the scene. This is often used to simulate <strong>rough surfaces</strong> or add <strong>fine details</strong> to a surface without increasing the number of polygons in the mesh.</p>
+    
+    <p>To compute local space normals, we can look at how the height changes in small changes in <code>u</code> or <code>v</code>. Given <code>h(u,v)</code> which returns the height encoded by a height map at texture coordinates <code>u</code> and <code>v</code> and our \(w \times h\) height map, we have the local space normal as</p>
+    
+    <div class="math-equation">
+        \[
+        n_0 = \begin{bmatrix}
+        -k_hk_n(h(u+1/w,v) - h(u,v)) \\
+        -k_hk_n(h(u,v+1/h) - h(u,v)) \\
+        1
+        \end{bmatrix}
+        \]
+    </div>
+    
+    <p>Where <code>k_h</code> and <code>k_n</code> are the scaling factors for the height and normal maps. We then have our displaced model space normal as \(TBN \cdot n_0\). Below are some examples of the cloth and sphere mesh with bump mapping applied with <code>normal</code> value of <code>100</code> and <code>height</code> value of <code>0.08</code>.</p>
+
+    <table class="table-3-col">
+        <tr>
+            <th>Texture</th>
+            <th>Bump Mapping Sphere</th>
+            <th>B Mapping Cloth</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-19.png" alt="Texture"></td>
+            <td><img src="images/image-20.png" alt="Bump Mapping Sphere"></td>
+            <td><img src="images/image-21.png" alt="Bump Mapping Cloth"></td>
+        </tr>
+        <tr>
+            <td><img src="images/image-22.png" alt="Texture 2"></td>
+            <td><img src="images/image-23.png" alt="Bump Mapping Sphere 2"></td>
+            <td><img src="images/image-24.png" alt="Bump Mapping Cloth 2"></td>
+        </tr>
+    </table>
+    
+    <p>At this point, the bump mapping is simply a visual illusion acting on lighting effects. The object is not actually displaced, and this can make it less visually believable. To make the object actually displaced, we add <strong>displacement mapping</strong>. Displacement mapping modifies the position of the vertices in the vertex shader based on the height map. We do this by moving vertices in the direction of the normal vector scaled by the height map at that <code>uv</code> coordinate. Here are some examples of displacement mapping with <code>normal</code> value of <code>200</code> and <code>height</code> value of <code>0.02</code>.</p>
+    
+    <table class="table-3-col">
+        <tr>
+            <th>Texture</th>
+            <th>Displacement Mapping Sphere</th>
+            <th>Displacement Mapping Cloth</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-22.png" alt="Texture"></td>
+            <td><img src="images/image-25.png" alt="Displacement Mapping Sphere"></td>
+            <td><img src="images/image-26.png" alt="Displacement Mapping Cloth"></td>
+        </tr>
+    </table>
+    
+    <p>They look pretty similar under these parameters.</p>
+    
+    <h3 id="discussion">Discussion</h3>
+    
+    <p>With low enough displacement parameters like before, it is actually pretty difficult to distinguish between bump and displacement mapping. However, if I increase/exaggerate the <code>height</code> value of the displacement mapping (to <code>2</code>), the difference becomes more apparent.</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>Displacement Mapping Sphere</th>
+            <th>Bump Mapping Sphere with Same Parameters</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-27.png" alt="Displacement Mapping Sphere"></td>
+            <td><img src="images/image-28.png" alt="Bump Mapping Sphere"></td>
+        </tr>
+        <tr>
+            <th>Displacement Mapping Cloth</th>
+            <th>Bump Mapping Cloth</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-38.png" alt="Displacement Mapping Cloth"></td>
+            <td><img src="images/image-39.png" alt="Bump Mapping Cloth"></td>
+        </tr>
+    </table>
+    
+    <p>The displacement mapped is much more visually appealing and convincing than the bump mapped sphere. The bump mapped sphere looks like a flat surface with some lighting effects, while the displacement mapped sphere looks like a real object with depth and detail. <strong>For instance, notice how the displacement mapped sphere does not look like a full sphere, but rather a sphere with dents in it especially on the sides, whereas the bump mapped sphere looks like a flat surface with some lighting effects.</strong> The same applies to the cloth mesh.</p>
+    
+    <h3 id="changing-sphere-mesh-coarseness">Changing the Sphere Mesh Coarseness</h3>
+    
+    <p>We now change from the previous 128x128 resolution sphere mesh to a 16x16 resolution sphere mesh. The displacements are harder to see in a low resolution and the two become more similar even with an exaggerated <code>height</code> value.</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <td><img src="images/image-29.png" alt="16x16 Bump Mapping Sphere"></td>
+            <td><img src="images/image-28.png" alt="128x128 Bump Mapping Sphere"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center">16x16 Bump Mapping Sphere</td>
+            <td style="text-align: center">128x128 Bump Mapping Sphere</td>
+        </tr>
+        <tr>
+            <td><img src="images/image-30.png" alt="16x16 Displacement Mapping Sphere"></td>
+            <td><img src="images/image-27.png" alt="128x128 Displacement Mapping Sphere"></td>
+        </tr>
+        <tr>
+            <td style="text-align: center">16x16 Displacement Mapping Sphere</td>
+            <td style="text-align: center">128x128 Displacement Mapping Sphere</td>
+        </tr>
+    </table>
+    
+    <p>The dents are much clearer in higher resolution.</p>
+    
+    <h3 id="environment-mapping">Environment Mapping</h3>
+    
+    <p>Environment mapping simulates the reflection of the environment on a surface rather than mapping the texture itself. This is done by getting the reflection vector at each fragment and sampling the environment map at that point using the <code>texture(samplerCube tex, vec3 reflection)</code> function in GLSL. The reflection vector is computed as \(R = V - 2(N \cdot L)N\), where \(V\) is the view vector, \(L\) is the light vector, and \(N\) is the normal vector. Below is an example of the cloth scene with environment mapping applied.</p>
+    
+    <table class="table-2-col">
+        <tr>
+            <th>static in motion</th>
+            <th>in rest</th>
+        </tr>
+        <tr>
+            <td><img src="images/image-17.png" alt="Environment mapping in motion"></td>
+            <td><img src="images/image-18.png" alt="Environment mapping at rest"></td>
+        </tr>
+    </table>
+    
+    <h3 id="bubble-shader">Bubble Shader</h3>
+    
+    <p>I tried making the sphere a bubble. I did this by making it bounce a little over time with Perlin noise in the vertex shader that takes <code>time</code> as a parameter and move in noisy ways in sines and cosines. We used a dynamic level of opacity that depends on how aligned the view direction is with the normal, squaring that for better visual effect, and using that as the opacity. I also add a tint of emissive color based on this alignement, which is why yoo see the magneta in the sides of the bubble. Finally, I apply some specularity to add even cooler lighting effect and apply environment mapping so it looks like a bubble in the scene. We use the metallic plane (which is really the cloth mesh) for color contrast.</p>
+    
+    <p><img src="images/image-37.png" alt="Bubble shader" class="single-image"></p>
+    <p><img src="images/bubble.gif" alt="bubble gif" class="single-image"></p>
+    
+</body>
+</html>
