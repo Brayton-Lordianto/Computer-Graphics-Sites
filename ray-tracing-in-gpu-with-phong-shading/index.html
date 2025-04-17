@@ -1,0 +1,249 @@
+<body bgcolor=white>
+    <center>
+        <h1>Ray Tracing and Ray Marching: With Reflections and Refractions</h1>
+        <blockquote>
+            <p>Brayton Lordianto and Max Wilcoxson (Team Vis10n Pro)</p>
+        </blockquote>
+        <!-- href to code -->
+        <a href="https://github.com/your-repo/ray-tracing-in-gpu-with-phong-shading" target="_blank">View the Code on GitHub</a>
+
+        <canvas id="canvas1" width="500" height="500"></canvas>
+        <canvas id='canvas2' width=500 height=500></canvas>
+        <!-- add a script to shaders.js -->
+        <script src="./shaders1.js"></script>
+        <script src="./shaders2.js"></script>
+        <p> Click and drag to make the main sphere move and enlarge. </p>
+        <br />
+        <p> This is All done with Ray Marching. Spheres are smoothly unionized and color gradient is blended. </p>
+        // slider for smoothness step of 0.1 from 0.4 to 0.8
+        <input type="range" min="0.4" max="0.8" value="0.4" step="0.1" class="slider" id="myRange">
+
+
+        <script>
+
+            // INITIALIZE GPU PROGRAM
+
+            let start_gl = (canvas2, meshData, vertexSize, vertexShader, fragmentShader) => {
+                let gl = canvas2.getContext("webgl");
+                let program = gl.createProgram();
+                gl.program = program;
+                let addshader = (type, src) => {
+                    let shader = gl.createShader(type);
+                    gl.shaderSource(shader, src);
+                    gl.compileShader(shader);
+                    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+                        throw "Cannot compile shader:\n\n" + gl.getShaderInfoLog(shader);
+                    gl.attachShader(program, shader);
+                };
+                addshader(gl.VERTEX_SHADER, vertexShader);
+                addshader(gl.FRAGMENT_SHADER, fragmentShader);
+                gl.linkProgram(program);
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+                    throw "Could not link the shader program!";
+                gl.useProgram(program);
+                gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+                gl.enable(gl.DEPTH_TEST);
+                gl.depthFunc(gl.LEQUAL);
+                let vertexAttribute = (name, size, position) => {
+                    let attr = gl.getAttribLocation(program, name);
+                    gl.enableVertexAttribArray(attr);
+                    gl.vertexAttribPointer(attr, size, gl.FLOAT, false, vertexSize * 4, position * 4);
+                }
+                vertexAttribute('aPos', 3, 0);
+                return gl;
+            }
+
+            // LOGIC TO TRACK THE CURSOR
+
+            let r = canvas2.getBoundingClientRect(), cursor = [0, 0, 0];
+            let setCursor = (e, z) => cursor = [(e.clientX - r.left) / canvas1.width * 2 - 1,
+            1 - (e.clientY - r.top) / canvas1.height * 2,
+            z !== undefined ? z : cursor[2]];
+            canvas2.onmousedown = e => setCursor(e, 1);
+            canvas2.onmousemove = e => setCursor(e,);
+            canvas2.onmouseup = e => setCursor(e, 0);
+
+            // TRIANGLE DATA (IN THIS CASE, A SQUARE)
+
+            let meshData = [
+                { type: 1, mesh: new Float32Array([-1, 1, 0, 1, 1, 0, -1, -1, 0, 1, -1, 0]) },
+            ];
+
+            // VERTEX AND FRAGMENT SHADERS
+
+
+            let vertexSize = 3;
+
+            // WAIT 100 MSECS BEFORE STARTING UP
+
+            setTimeout(() => {
+                let gl = start_gl(canvas2, meshData, vertexSize, vertexShader2, fragmentShader2);
+
+                // INITIALIZE POSITION, VELOCITY AND COLOR OF EACH SPHERE
+
+                let V = [], S = [], C = [];
+                for (let n = 0; n < 4 * MAX_SPHERES; n++)
+                    if (n % 4 < 3) {
+                        S.push(2 * Math.random() - 1);
+                        V.push(0);
+                        C.push(Math.random());
+
+                    }
+                    else
+                        S.push(.3);
+
+                // FIND LOCATIONS IN GPU PROGRAM OF UNIFORM VARIABLES
+
+                let uFL = gl.getUniformLocation(gl.program, "uFL");
+                let uTime = gl.getUniformLocation(gl.program, "uTime");
+                let uCursor = gl.getUniformLocation(gl.program, "uCursor");
+                let uS = gl.getUniformLocation(gl.program, "uS");
+                let uC = gl.getUniformLocation(gl.program, "uC");
+                let uSmoothness = gl.getUniformLocation(gl.program, "uSmoothness");
+
+                // ANIMATE AND RENDER EACH ANIMATION FRAME
+
+                let startTime = Date.now() / 1000;
+                setInterval(() => {
+
+                    
+                    // HANDLE SPHERES BEHAVIOR FOR THIS ANIMATION FRAME
+                    
+                    for (let n = 0; n < S.length - 4; n++)
+                    if (n % 4 != 3) {
+                        // speed up or slow down
+                        V[n] = .99 * V[n] + .1 * (Math.random() - .5);
+                        S[n] += .1 * V[n] * 0.1;
+                        if (Math.abs(S[n]) > 1)
+                        V[n] = -.1 * Math.sign(S[n]);
+                    }
+
+                    // Update in the animation function (inside the setInterval)
+                    // Make the last sphere follow the cursor position
+                    S[S.length-4] = cursor[0]; // x position
+                    S[S.length-3] = cursor[1]; // y position
+                    S[S.length-2] = 0;         // z position (can be static or animated)
+                    S[S.length-1] = 0.3 + cursor[2] * 0.2; // Size - changes when mouse is clicked
+                    
+                    // SET ALL UNIFORM VARIABLES
+
+                    gl.uniform1f(uTime, Date.now() / 1000 - startTime);
+                    gl.uniform3fv(uCursor, cursor);
+                    gl.uniform1f(uFL, 3);
+                    gl.uniform4fv(uS, S);
+                    gl.uniform3fv(uC, C);
+                    gl.uniform1f(uSmoothness, document.getElementById("myRange").value);
+
+                    // RENDER THE FRAME
+
+                    for (let n = 0; n < meshData.length; n++) {
+                        let mesh = meshData[n].mesh;
+                        gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
+                        gl.drawArrays(meshData[n].type ? gl.TRIANGLE_STRIP : gl.TRIANGLES, 0, mesh.length / vertexSize);
+                    }
+                }, 30);
+            }, 100);
+        </script>
+        <script>
+            setTimeout(() => {
+               let gl = start_gl(canvas1, meshData, vertexSize, vertexShader1, fragmentShader1);
+            
+               // INITIALIZE POSITION, VELOCITY AND PHONG PARAMETERS OF EACH SPHERE
+            
+               let V = [], S = [], ambient = [], diffuse = [], specular = [];
+               let sphereRadius = 0.12;
+               for (let n = 0 ; n < 4*NSPHERES ; n++) {
+                  if (n % 4 < 3) {
+                     S.push(2 * Math.random() - 1);
+                     V.push(0);
+                     let c = Math.random();
+                     ambient.push(.2 * c);
+                     diffuse.push(.8 * c);
+                     specular.push(1);
+                  }
+                  else {
+                     S.push(sphereRadius);
+                     specular.push(20);
+                  }
+               }
+            
+               // FIND LOCATIONS IN GPU PROGRAM OF UNIFORM VARIABLES
+            
+               let uFL       = gl.getUniformLocation(gl.program, "uFL"      );
+               let uTime     = gl.getUniformLocation(gl.program, "uTime"    );
+               let uCursor   = gl.getUniformLocation(gl.program, "uCursor"  ); 
+               let uLC       = gl.getUniformLocation(gl.program, "uLC"      ); 
+               let uLD       = gl.getUniformLocation(gl.program, "uLD"      ); 
+               let uSphere   = gl.getUniformLocation(gl.program, "uSphere"  ); 
+               let uAmbient  = gl.getUniformLocation(gl.program, "uAmbient" ); 
+               let uDiffuse  = gl.getUniformLocation(gl.program, "uDiffuse" ); 
+               let uSpecular = gl.getUniformLocation(gl.program, "uSpecular"); 
+            
+               // ANIMATE AND RENDER EACH ANIMATION FRAME
+            
+               let startTime = Date.now() / 1000;
+               setInterval(() => {
+                  
+                  // HANDLE SPHERES BEHAVIOR FOR THIS ANIMATION FRAME
+            
+                  for (let n = 0, i = 0 ; n < S.length ; n++)
+                     if (n % 4 < 3) {
+                        V[i] = .99 * V[i] + .02 * (Math.random() - .5);
+                        S[n] += .1 * V[i];
+                        if (Math.abs(S[n]) > 1)
+                           V[i] = -.2 * Math.sign(S[n]);
+                        i++;
+                     }
+            
+                  // MAKE SPHERES BOUNCE OFF ONE ANOTHER
+            
+                  for (let i = 0 ; i < S.length-4 ; i += 4)
+                  for (let j = i+4 ; j < S.length ; j += 4) {
+                     let A = S.slice(i,i+3), ra = S[i+3];
+                     let B = S.slice(j,j+3), rb = S[j+3];
+                     let D = [ B[0]-A[0], B[1]-A[1], B[2]-A[2] ];
+                     let d = Math.sqrt(D[0]*D[0] + D[1]*D[1] + D[2]*D[2]);
+                     if (d < ra + rb) {
+                        let iv = i*3/4;
+                        let jv = j*3/4;
+                        for (let k = 0 ; k < 3 ; k++) {
+                           V[iv+k] -= .1 * D[k];
+                           V[jv+k] += .1 * D[k];
+                        }
+                     }
+                  }
+            
+                  // SET ALL UNIFORM VARIABLES
+            
+                  gl.uniform1f(uTime, Date.now() / 1000 - startTime);
+                  gl.uniform3fv(uCursor, cursor);
+                  gl.uniform1f(uFL, 3);
+                  
+                  // this is the light sources intensity and their directions
+                  // LC is the color intensity of the light source
+                  let r3 = Math.sqrt(1/3);
+                  gl.uniform3fv(uLC, [1,1,1,      .3,.2,.1]);
+                  gl.uniform3fv(uLD, [r3,r3,r3, -r3,-r3,-r3])
+                //   gl.uniform3fv(uLC, [1,1,1,      .3,.2,.1]);
+                //   gl.uniform3fv(uLD, [r3,r3,r3, -r3,-r3,-r3]);
+    
+    
+                  gl.uniform4fv(uSphere, S);
+                  gl.uniform3fv(uAmbient, ambient);
+                  gl.uniform3fv(uDiffuse, diffuse);
+                  gl.uniform4fv(uSpecular, specular);
+            
+                  // RENDER THE FRAME
+            
+                  for (let n = 0 ; n < meshData.length ; n++) {
+                     let mesh = meshData[n].mesh;
+                     gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
+                     gl.drawArrays(meshData[n].type ? gl.TRIANGLE_STRIP : gl.TRIANGLES, 0, mesh.length / vertexSize);
+                  }
+               }, 30);
+            }, 100);
+            </script>
+    </center>
+</body>
+</html>
+
