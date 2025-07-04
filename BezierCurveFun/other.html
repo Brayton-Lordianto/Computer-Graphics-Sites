@@ -1,0 +1,445 @@
+<body onload=start()>
+<script src=g.js></script>
+<script src=m4.js></script>
+<h1>Bezier Curves (Interactive Diagram HW)</h1>
+<p>On the left diagram, you can hover and see the different linear interpolations that make up a Bezier curve. On the right you have a structure made out of Bezier curves. Font sizing is enabled by the ease of using Bezier curves to represent them. All the points can be moved by clicking on the points and releasing.  </p>
+<canvas id=splines width=400 height=250 tabindex="1"></canvas>
+<button onclick="splineReset()">Reset</button>
+<canvas id=splines2 width=400 height=250 tabindex="1"></canvas>
+
+<script>
+    // ====================
+    // MOVE AND CLICK EVENTS
+    // ====================
+
+    // what is important: 4 different x,y pairs for each point 
+    // then you need to be able to identify which point is being selected
+    function splineReset() {
+        splines.setup();
+        splines2.setup();
+    }
+
+    splines.mouseUp = function (x, y) {
+        this.isEngaged = !this.isEngaged;
+        if (this.isEngaged) { 
+            this.selectedPoint = updatePointSelection(x, y, this.points); 
+            updateEngagedPointState(this.points);
+        }
+        else { this.selectedPoint = -1; resetPointState(this.points); } 
+    }
+
+    function resetPointState(points = this.points) {
+        for (var i = 0; i < points.length; i++) {
+            points[i].gray = false;
+            points[i].size = 6;
+        }
+    }
+
+    function updateEngagedPointState(points = this.points) {
+        // update the color of the point that is engaged
+        // and make the other points gray
+        if (this.selectedPoint == -1 || this.selectedPoint === undefined) return;
+        for (var i = 0; i < points.length; i++) {
+            points[i].gray = true;
+            points[i].size = 5; 
+        }
+        points[this.selectedPoint].gray = false;
+        points[this.selectedPoint].size = 7;
+    }
+
+    function updatePointSelection(x, y, points) {
+        // check if the mouse is within the bounds of the point
+        // if it is, then set the point to be selected
+        // if not, then set the point to be unselected
+        const unit = 15;
+        for (var i = 0; i < points.length; i++) {
+            var point = points[i];
+            if (x > point.x - unit && x < point.x + unit && y > point.y - unit && y < point.y + unit) {
+                this.selectedPoint = i;
+                console.log('selected point: ' + i)
+                return this.selectedPoint  
+            } 
+        }
+        return -1;
+    }
+
+    splines.mouseMove = function (x, y) {
+        console.log(this.isEngaged, this.selectedPoint)
+
+        // when the mouse is not engaged, if the mouse is hovering close to a lerp line, then animate the lerp line
+        if (!this.isEngaged) {
+            drawLerpLines(x, y, this.points);
+        line(112, 132, 161, 72)
+        }
+
+        // when the mouse is engaged, update the position of the selected point
+        if (this.isEngaged && this.selectedPoint != -1 && this.selectedPoint !== undefined) {
+            this.points[this.selectedPoint].x = x;
+            this.points[this.selectedPoint].y = y;
+        }
+    }
+
+    // var P1 = {x: 112, y: 132, z: 0}, P2 = {x: 161, y: 72, z: 0}, P3 = {x: 289, y: 90, z: 0}, P4 = {x: 301, y: 146, z: 0};
+    splines.setup = function () {
+        this.selectedPoint = -1
+        var P1 = {x: 112, y: 132, z: 0, color: 'red', gray: false, size: 6}, P2 = {x: 161, y: 72, z: 0, color: 'blue', gray: false, size: 6}, P3 = {x: 289, y: 90, z: 0, color: 'green', gray: false, size: 6}, P4 = {x: 301, y: 146, z: 0, color: 'orange', gray: false, size: 6};
+        this.points = [P1, P2, P3, P4];
+    }
+
+    // ====================
+    // HOVER ACTIONS AND LERP LINES
+    // ====================
+
+    // draw the lerp lines if there is a selected lerp line 
+    function drawLerpLines(x, y, points = this.points) {
+        const selectedLerp = getSelectedLerpLine(x, y, points);
+        if (selectedLerp === undefined) return;
+        console.log('selected lerp: ' + selectedLerp)
+        const A = selectedLerp[0], B = selectedLerp[1], lerpLevel = selectedLerp[2];
+        const level1color = 'green', level2color = 'blue';
+        const mainColor = lerpLevel == 1 ? level1color : level2color;
+        
+        // draw the line as non dotted
+        // if the level is 2, draw also the dots of the level 1 lerps A and B
+        makeWidthThicker();
+        drawLine(A, B, dotted = false, mainColor);
+        drawSelectedLerpDot(A, B, 10, 10);
+        if (lerpLevel == 2) {
+            drawDot(A, level1color, 5, 10);
+            drawDot(B, level1color, 5, 10);
+        }        
+        makeWidthThinner();
+        
+        // and draw the rest as dotted
+        drawLine(points[0], points[1], true);
+        drawLine(points[1], points[2], true);
+        drawLine(points[2], points[3], true);
+        const lerp1 = lerpPoint(points[0], points[1], getTimeFactor()), lerp2 = lerpPoint(points[1], points[2], getTimeFactor()), lerp3 = lerpPoint(points[2], points[3], getTimeFactor());
+        drawLine(lerp1, lerp2, true);
+        drawLine(lerp2, lerp3, true);
+
+    }
+
+    // get the lerp line currently selected by the mouse hover
+    // this can be done by getting the formula of the line between two points A and B,
+    // and then checking if x and y are within the bounds of the line
+    // as well as not out of bound (below minX, above maxX, below minY, above maxY)
+    // returns two points of the lerp line + the lerp level if exists, otherwise undefined
+    function getSelectedLerpLine(x, y, points = this.points) {
+        // for each two points, check if x and y are within the lerp line
+        // if so, print which lerp line is selected
+        // consider the second levels too 
+        const timeFactor = getTimeFactor();
+        const lerped1 = lerpPoint(points[0], points[1], timeFactor);
+        const lerped2 = lerpPoint(points[1], points[2], timeFactor);
+        const lerped3 = lerpPoint(points[2], points[3], timeFactor);
+        const lerpPoints = [lerped1, lerped2, lerped3];
+        for (var i = 0; i < points.length - 1; i ++) {
+            const A = points[i], B = points[i + 1], level = 1;
+            if (isWithinLerpLine(x, y, A, B)) {
+                return [A, B, level];
+            }
+        }
+
+        for (var i = 0; i < lerpPoints.length - 1; i++) {
+            var A = lerpPoints[i], B = lerpPoints[i + 1], level = 2;
+            if (isWithinLerpLine(x, y, A, B)) {
+                return [A, B, level];
+            }
+        }
+        return undefined;
+    }
+
+    // check if x, y is within the bounds of the line between A and B
+    function isWithinLerpLine(x, y, A, B) {
+        // if out of bounds, return false
+        if (x < Math.min(A.x, B.x) || x > Math.max(A.x, B.x) || y < Math.min(A.y, B.y) || y > Math.max(A.y, B.y)) return false;
+
+        // if within units of some point in the line, return true
+        const units = 10;
+        if (distanceFromLine(x, y, A, B) < units) return true;
+        
+        return false;
+    }
+
+    // the line will be the normal to the lerp line between A and B
+    // return any point in the line that is not the selected point
+    function distanceFromLine(x, y, A, B) { 
+        const vecAB = { x: B.x - A.x, y: B.y - A.y };
+
+        // we want the normal to the line AB
+        // which we can do with a dot product 
+        // observe that the dot product of the normal and the line AB is 0
+        // so vecAB.x * vecNormal.x + vecAB.y * vecNormal.y = 0
+        // rearranging for y gives us: vecNormal.y = -vecAB.x * vecNormal.x / vecAB.y
+        // we will use an x slightly larger than the x of the selected point and get the y of the normal
+        const x1 = x + 0.01;
+        const y1 = -vecAB.x * x1 / vecAB.y;
+
+        // now we have 2 points on the normal line, (x, y) and (x1, y1)
+        // so we have the line, and we just want the intersection point between the line and the normal line
+        const intersectionPoint = lineIntersection(A, B, { x: x, y: y }, { x: x1, y: y1 });
+        
+        // and simply the euclidean distance between the intersection point and the selected point
+        const distance = Math.sqrt(Math.pow(intersectionPoint.x - x, 2) + Math.pow(intersectionPoint.y - y, 2));
+        return distance;
+    }
+
+    // given 2 points on one line and 2 points on another line, find the intersection point
+    // return the intersection point
+    // modified from source: https://www.geeksforgeeks.org/program-for-point-of-intersection-of-two-lines/#
+    function lineIntersection(A,B,C,D){
+        // Line AB represented as a1x + b1y = c1
+        var a1 = B.y - A.y;
+        var b1 = A.x - B.x;
+        var c1 = a1*(A.x) + b1*(A.y);
+        
+        // Line CD represented as a2x + b2y = c2
+        var a2 = D.y - C.y;
+        var b2 = C.x - D.x;
+        var c2 = a2*(C.x)+ b2*(C.y);
+        
+        var determinant = a1*b2 - a2*b1;
+        
+        
+        var x = (b2*c1 - b1*c2)/determinant;
+        var y = (a1*c2 - a2*c1)/determinant;
+        return { x: x, y: y };
+    }
+
+    // draw a single dot of the selected lerp line
+    function drawSelectedLerpDot(A, B, sizeX = 6, sizeY = 6) {
+        const timeFactor = getTimeFactor();
+        const x = lerp(timeFactor, A.x, B.x);
+        const y = lerp(timeFactor, A.y, B.y);
+        drawDot({x: x, y: y}, 'blue', sizeX, sizeY);
+    }
+
+    // ====================
+    // DRAWING POINTS AND LINES
+    // ====================
+    
+    function drawDot(point, colorValue, sizeX = 6, sizeY = 6) {
+        color(colorValue);
+        fillOval(point.x, point.y, sizeX, sizeY);
+    }
+
+    function renderPoint(point) {
+        const pointColor = point.gray ? 'gray' : point.color;
+        color(pointColor);
+        fillOval(point.x, point.y, point.size, point.size);
+    }    
+
+    function renderPoints(points = this.points) {
+        for (var i = 0; i < points.length; i++) {
+            renderPoint(points[i]);
+        }    
+    }    
+
+    function drawLine(point1, point2, dotted = false, colorValue = undefined) {
+        console.log('color value: ' + colorValue)
+        if (color === undefined) color('green') 
+        else color(colorValue);
+        console.log('drawing line: ' + point1.x + ', ' + point1.y + ', ' + point2.x + ', ' + point2.y)
+        if (!dotted) line(point1.x, point1.y, point2.x, point2.y);
+        else dottedLine(point1, point2);
+    }
+
+    function dottedLine(A, B) {
+        if (A.x > B.x) {
+            var temp = A;
+            A = B;
+            B = temp;
+        }
+
+        const numDots = 10; 
+
+        // get a list of points between A and B numbering numDots
+        const list = [];
+        for (var i = 0; i < numDots; i++) {
+            const x = lerp(i / numDots, A.x, B.x);
+            const y = lerp(i / numDots, A.y, B.y);
+            list.push({x: x, y: y});
+        }
+
+        // draw a line between every other point in the list
+        for (var i = 0; i < list.length - 1; i += 2) {
+            line(list[i].x, list[i].y, list[i + 1].x, list[i + 1].y);
+        }
+    }
+
+    function lerpPoint(A, B, t) {
+        return {x: lerp(t, A.x, B.x), y: lerp(t, A.y, B.y)};
+    }
+
+    // ====================
+    // BEZIER CURVE
+    // ====================
+
+
+    // simply returning the final bezier value
+    function bezier(t, val1, val2, val3, val4, drawOption = false) {
+        var l1_1 = lerp(t, val1, val2), l1_2 = lerp(t, val2, val3), l1_3 = lerp(t, val3, val4);
+        var l2_1 = lerp(t, l1_1, l1_2), l2_2 = lerp(t, l1_2, l1_3);
+        var l3 = lerp(t, l2_1, l2_2);
+        return l3;
+    }    
+
+    // draw a bezier around the 4 points 
+    // draw a dot on the bezier curve over time
+    function drawBezierDot(P1, P2, P3, P4) {
+        const timeFactor = getTimeFactor();
+        const x = bezier(timeFactor, P1.x, P2.x, P3.x, P4.x);
+        const y = bezier(timeFactor, P1.y, P2.y, P3.y, P4.y);
+        drawDot({x: x, y: y}, 'black');
+    }        
+
+    // time factor 
+    function getTimeFactor() {
+        return Math.sin(Date.now() / 1000) / 2 + 0.5;
+    }
+
+    // draw without animation
+    function drawFullBezierCurve(P1, P2, P3, P4, maxT = 1) {
+        var prevx = P1.x, prevy = P1.y;
+        for (var t = 0; t <= maxT; t += 0.01) {
+            var x = bezier(t, P1.x, P2.x, P3.x, P4.x);
+            var y = bezier(t, P1.y, P2.y, P3.y, P4.y);
+            makeWidthThicker();
+            line(prevx, prevy, x, y);
+            prevx = x;
+            prevy = y;
+        }
+        makeWidthThinner();
+    }
+
+    function makeWidthThicker() {
+        lineWidth(3);
+    }
+
+    function makeWidthThinner() {
+        lineWidth(1);
+    }
+
+    // this will get called when your mouse hovers over a lerp line implicitly. 
+    // animate a single lerp level of the bezier curve, with a key color for the closest selected line 
+    // a selected lerp will highlight the lerp between either P1 and P2 [1], P2 and P3 [2], or P3 and P4 [3], or [1] and [2] [[4]], or [2] and [3] [[5]] 
+    // when showing level 2, render the bezier dot of level 1 lerps but not the lines
+    function animateSingleLerpLevel(P1, P2, P3, P4, selectedLerp) {
+        console.log('selected lerp: ' + selectedLerp)
+    }
+
+    // draw with animation
+    function animateFullBezierCurve(P1, P2, P3, P4) { 
+        var timeFactor = getTimeFactor();
+        drawFullBezierCurve(P1, P2, P3, P4, timeFactor);
+    }
+
+    splines.animate = function () {
+        var x = this.mouseX, y = this.mouseY;
+        var P1 = this.points[0], P2 = this.points[1], P3 = this.points[2], P4 = this.points[3];        
+
+        // render the 4 points using fillOval
+        renderPoints(this.points);
+
+        // test bezier curve
+        drawBezierDot(P1, P2, P3, P4);
+        //drawFullBezierCurve(P1, P2, P3, P4);
+        animateFullBezierCurve(P1, P2, P3, P4);
+
+        // when the mouse is not engaged, if the mouse is hovering close to a lerp line, then animate the lerp line
+        if (!this.isEngaged) {
+            drawLerpLines(x, y, this.points);
+        } 
+
+        var w = width(), h = height(), y1 = h * 4 / 5;
+        textHeight(w / 48);
+        color('black');
+        drawRect(2, 2, w - 4, y1 - 3);
+        var ty = y1 + w / 32;
+
+    }
+</script>
+
+<script>
+    // ====================
+    // MOVE AND CLICK EVENTS
+    // ====================
+    // what is important: 4 different x,y pairs for each point 
+    // then you need to be able to identify which point is being selected
+    splines2.mouseUp = function (x, y) {
+        this.isEngaged = !this.isEngaged;
+        if (this.isEngaged) { 
+            this.selectedPoint = updatePointSelection(x, y, this.points); 
+            updateEngagedPointState(this.points);
+        }
+        else { this.selectedPoint = -1; resetPointState(this.points); } 
+    }
+
+    splines2.mouseMove = function (x, y) {
+        if (!this.isEngaged || this.selectedPoint == -1 || this.selectedPoint === undefined) return;
+        this.points[this.selectedPoint].x = x;
+        this.points[this.selectedPoint].y = y;
+    }
+
+    // var P1 = {x: 112, y: 132, z: 0}, P2 = {x: 161, y: 72, z: 0}, P3 = {x: 289, y: 90, z: 0}, P4 = {x: 301, y: 146, z: 0};
+    // x = 220, y = 20
+    // for every point, we go down 40 until y = 180 is reached
+    // when this happens, go right by 60, so you are at x = 280, y = 20 
+    // then continue  
+    //var P1 = {x: 220, y: 20, z: 0, color: 'red', gray: false, size: 6}, P2 = {x: 220, y: 60, z: 0, color: 'blue', gray: false, size: 6}, P3 = {x: 220, y: 100, z: 0, color: 'green', gray: false, size: 6}, P4 = {x: 220, y: 140, z: 0, color: 'orange', gray: false, size: 6}, P5 = {x: 220, y: 180, z: 0, color: 'red', gray: false, size: 6}, P6 = {x: 280, y: 20, z: 0, color: 'blue', gray: false, size: 6}, P7 = {x: 280, y: 60, z: 0, color: 'green', gray: false, size: 6}, P8 = {x: 280, y: 100, z: 0, color: 'orange', gray: false, size: 6}, P9 = {x: 280, y: 140, z: 0, color: 'red', gray: false, size: 6}, P10 = {x: 280, y: 180, z: 0, color: 'blue', gray: false, size: 6}, P11 = {x: 340, y: 20, z: 0, color: 'green', gray: false, size: 6}, P12 = {x: 340, y: 60, z: 0, color: 'orange', gray: false, size: 6}, P13 = {x: 340, y: 100, z: 0, color: 'red', gray: false, size: 6}, P14 = {x: 340, y: 140, z: 0, color: 'blue', gray: false, size: 6}, P15 = {x: 340, y: 180, z: 0, color: 'green', gray: false, size: 6}, P16 = {x: 390, y: 20, z: 0, color: 'orange', gray: false, size: 6}, P17 = {x: 390, y: 60, z: 0, color: 'red', gray: false, size: 6}, P18 = {x: 390, y: 100, z: 0, color: 'blue', gray: false, size: 6}, P19 = {x: 390, y: 140, z: 0, color: 'green', gray: false, size: 6}, P20 = {x: 390, y:180, z: 0, color: 'orange', gray: false, size: 6};
+    splines2.setup = function () {
+        this.selectedPoint = -1
+        // make 20 points ordered as such: 
+        // [[43, 53.5], [49, 13.5], [155, 3.5], [194, 36.5], [221, 83.5], [201, 121.5], [207, 159.5], [217, 188.5], [229, 188.5], [242, 177.5], [245, 134.5], [245, 130.5], [257, 133.5], [251, 163.5], [265, 176.5], [242, 195.5], [219, 212.5], [177, 227.5], [178, 144.5], [106, 173.5], ]
+        //var P1 = {x: 43, y: 53.5, z:0, color: 'red', gray:false, size: 6}, P2 = {x: 49, y: 13.5, z:0, color: 'blue', gray:false, size: 6}, P3 = {x: 155, y: 3.5, z:0, color: 'green', gray:false, size: 6}, P4 = {x: 194, y: 36.5, z:0, color: 'orange', gray:false, size: 6}, P5 = {x: 221, y: 83.5, z:0, color: 'red', gray:false, size: 6}, P6 = {x: 201, y: 121.5, z:0, color: 'blue', gray:false, size: 6}, P7 = {x: 207, y: 159.5, z:0, color: 'green', gray:false, size: 6}, P8 = {x: 217, y: 188.5, z:0, color: 'orange', gray:false, size: 6}, P9 = {x: 229, y: 188.5, z:0, color: 'red', gray:false, size: 6}, P10 = {x: 242, y: 177.5, z:0, color: 'blue', gray:false, size: 6}, P11 = {x: 245, y: 134.5, z:0, color: 'green', gray:false, size: 6}, P12 = {x: 245, y: 130.5, z:0, color: 'orange', gray:false, size: 6}, P13 = {x: 257, y: 133.5, z:0, color: 'red', gray:false, size: 6}, P14 = {x: 251, y: 163.5, z:0, color: 'blue', gray:false, size: 6}, P15 = {x: 265, y: 176.5, z:0, color: 'green', gray:false, size: 6}, P16 = {x: 242, y: 195.5, z:0, color: 'orange', gray:false, size: 6}, P17 = {x: 219, y: 212.5, z:0, color: 'red', gray:false, size: 6}, P18 = {x: 177, y: 227.5, z:0, color: 'blue', gray:false, size: 6}, P19 = {x: 178, y: 144.5, z:0, color: 'green', gray:false, size: 6}, P20 = {x: 106, y: 173.5, z:0, color: 'orange', gray:false, size: 6};
+        // [[169, 33.5], [124, 1.5], [89, 20.5], [64, 43.5], [32, 84.5], [46, 172.5], [130, 183.5], [157, 184.5], [166, 193.5], [158, 150.5], [149, 161.5], [121, 158.5], [94, 137.5], [59, 88.5], [93, 36.5], [166, 64.5], [192, 50.5], [155, 41.5], [173, 35.5], ]
+        var P1 = {x: 169, y: 33.5, z:0, color: 'red', gray:false, size: 6}, P2 = {x: 124, y: 1.5, z:0, color: 'blue', gray:false, size: 6}, P3 = {x: 89, y: 20.5, z:0, color: 'green', gray:false, size: 6}, P4 = {x: 64, y: 43.5, z:0, color: 'orange', gray:false, size: 6}, P5 = {x: 32, y: 84.5, z:0, color: 'red', gray:false, size: 6}, P6 = {x: 46, y: 172.5, z:0, color: 'blue', gray:false, size: 6}, P7 = {x: 130, y: 183.5, z:0, color: 'green', gray:false, size: 6}, P8 = {x: 157, y: 184.5, z:0, color: 'orange', gray:false, size: 6}, P9 = {x: 166, y: 193.5, z:0, color: 'red', gray:false, size: 6}, P10 = {x: 158, y: 150.5, z:0, color: 'blue', gray:false, size: 6}, P11 = {x: 149, y: 161.5, z:0, color: 'green', gray:false, size: 6}, P12 = {x: 121, y: 158.5, z:0, color: 'orange', gray:false, size: 6}, P13 = {x: 94, y: 137.5, z:0, color: 'red', gray:false, size: 6}, P14 = {x: 59, y: 88.5, z:0, color: 'blue', gray:false, size: 6}, P15 = {x: 93, y: 36.5, z:0, color: 'green', gray:false, size: 6}, P16 = {x: 166, y: 64.5, z:0, color: 'orange', gray:false, size: 6}, P17 = {x: 192, y: 50.5, z:0, color: 'red', gray:false, size: 6}, P18 = {x: 155, y: 41.5, z:0, color: 'blue', gray:false, size: 6}, P19 = {x: 173, y: 35.5, z:0, color: 'green', gray:false, size: 6};
+        //var P1 = {x: 220, y: 20, z: 0, color: 'red', gray: false, size: 6}, P2 = {x: 220, y: 60, z: 0, color: 'blue', gray: false, size: 6}, P3 = {x: 220, y: 100, z: 0, color: 'green', gray: false, size: 6}, P4 = {x: 220, y: 140, z: 0, color: 'orange', gray: false, size: 6}, P5 = {x: 220, y: 180, z: 0, color: 'red', gray: false, size: 6}, P6 = {x: 280, y: 20, z: 0, color: 'blue', gray: false, size: 6}, P7 = {x: 280, y: 60, z: 0, color: 'green', gray: false, size: 6}, P8 = {x: 280, y: 100, z: 0, color: 'orange', gray: false, size: 6}, P9 = {x: 280, y: 140, z: 0, color: 'red', gray: false, size: 6}, P10 = {x: 280, y: 180, z: 0, color: 'blue', gray: false, size: 6}, P11 = {x: 340, y: 20, z: 0, color: 'green', gray: false, size: 6}, P12 = {x: 340, y: 60, z: 0, color: 'orange', gray: false, size: 6}, P13 = {x: 340, y: 100, z: 0, color: 'red', gray: false, size: 6}, P14 = {x: 340, y: 140, z: 0, color: 'blue', gray: false, size: 6}, P15 = {x: 340, y: 180, z: 0, color: 'green', gray: false, size: 6}, P16 = {x: 390, y: 20, z: 0, color: 'orange', gray: false, size: 6}, P17 = {x: 390, y: 60, z: 0, color: 'red', gray: false, size: 6}, P18 = {x: 390, y: 100, z: 0, color: 'blue', gray: false, size: 6}, P19 = {x: 390, y: 140, z: 0, color: 'green', gray: false, size: 6}, P20 = {x: 390, y:180, z: 0, color: 'orange', gray: false, size: 6};
+        this.points = [P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15, P16, P17, P18, P19];
+    }
+
+    // print the points to the console
+    // used to get which points to have 
+    // the print will be in the format of an array of x, y pairs
+    // [[x,y], [x,y], [x,y], [x,y]]
+    function printPoints(points = this.points) {
+        var str = '[';
+        for (var i = 0; i < points.length; i++) {
+            str += '[' + points[i].x + ', ' + points[i].y + ']' + ', ';
+        }
+        str += ']'
+        console.log(str);
+    }
+
+    // ====================
+    // MAIN
+    // ====================
+    splines2.animate = function () {
+        var x = this.mouseX, y = this.mouseY;
+        //var P1 = this.points[0], P2 = this.points[1], P3 = this.points[2], P4 = this.points[3];        
+        //var P5 = this.points[4], P6 = this.points[5], P7 = this.points[6], P8 = this.points[7];
+        var P1 = this.points[0], P2 = this.points[1], P3 = this.points[2], P4 = this.points[3], P5 = this.points[4], P6 = this.points[5], P7 = this.points[6], P8 = this.points[7], P9 = this.points[8], P10 = this.points[9], P11 = this.points[10], P12 = this.points[11], P13 = this.points[12], P14 = this.points[13], P15 = this.points[14], P16 = this.points[15], P17 = this.points[16], P18 = this.points[17], P19 = this.points[18];
+
+        // render the 4 points using fillOval
+        renderPoints(this.points);
+
+        // test bezier curve
+        drawFullBezierCurve(P1, P2, P3, P4);
+        drawFullBezierCurve(P4, P5, P6, P7);
+        drawFullBezierCurve(P7, P8, P9, P10);
+        drawFullBezierCurve(P10, P11, P12, P13);
+        drawFullBezierCurve(P13, P14, P15, P16);
+        drawFullBezierCurve(P16, P17, P18, P19);
+
+        var w = width(), h = height(), y1 = h * 4 / 5;
+        textHeight(w / 48);
+        color('black');
+        drawRect(2, 2, w - 4, y1 - 3);
+        var ty = y1 + w / 32;
+
+        printPoints(this.points);
+
+    }
+</script>
+
