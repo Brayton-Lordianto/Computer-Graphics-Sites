@@ -1,0 +1,47 @@
+<html>
+<body bgcolor="teal">
+<center>
+    <canvas id="canvas1" width="800" height="800"></canvas>
+    
+    <br/>
+    first lens length: 
+    <input type="range" id="lens1L" min="0" max="10" value="0" step="0.1"/>
+    
+    <br/>
+    second lens length:
+    <input type="range" id="lens2L" min="0" max="10" value="0" step="0.1"/>
+    
+    <br/>
+    Transform lens 2:
+    <button type="button" id="transformLens2" onclick="makeTransition()">Transform</button>
+
+    <br/>
+    Move lines along the Z axis:
+    <input type="range" id="zOffset" min="-0.2" max="1" value="0.1" step="0.1"/>
+
+    <br/>
+    View background:
+    <input type="checkbox" id="viewBackground" />
+
+    <br/>
+    <h1>
+    Description: Final Project for Graphics
+    This is an attempt to recreate an optical bench system in 3 dimensions using WebGL, all done with ray marching/tracing. 
+    The supported features are:
+    -  expanding the first lens, in order to see the rays change.  
+    -  expanding the second lens in order to see how concave and convex lenses change size gradually. Rays do not change, as with how benches would work. 
+    -  transforming the second lens between convex and concave. This is a smooth blend operation of signed distance function lerping. The ray changing can be seen. 
+    -  moving the lines along the z axis, and seeing the lines go off the lens, which would be impossible in 2D
+    -  viewing a background full of lenses. This is a pseudorandomly generated background of lenses, which can be a cool effect. 
+    -  3D WASD camera controls, with mouse controls.
+    </h1>   
+
+    <script src="shaders.js" type="application/javascript"></script>
+    <script src="js/driver.js" type="application/javascript"></script>
+    <script src="js/meshes.js" type="application/javascript"></script>
+    <script src="mainScript.js" type="application/javascript"></script>
+    <script src="js/graphicsUtility.js" type="application/javascript"></script>
+    <script src="js/userInteraction.js" type="application/javascript"></script>
+    <script src="js/opticalUtility.js" type="application/javascript"></script>
+</center></body>
+</html>
