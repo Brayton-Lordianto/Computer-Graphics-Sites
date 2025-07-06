@@ -171,10 +171,8 @@ let fragmentShader2 = `
    
 
    void main(void) {
-        vec3 bgColor = vec3(0.,0.,.05);
-        color = vec3(0.,0.,1.);
-        gl_FragColor = vec4(sqrt(color), 1.);
-        // return;
+        vec3 bgColor = vec3(0.05, 0.05, 0.08);
+        color = bgColor;
         // debugTrue();
         vec3 L = normalize(vec3(1.,1.,1.));
 
@@ -188,11 +186,7 @@ let fragmentShader2 = `
         vec3 W = normalize(vec3(vPos.xy,-uFL));
         float dist = rayMarchUnion(L, W, V);
         
-
-
-        
-    
-    gl_FragColor = vec4(sqrt(color), 1.);
+        gl_FragColor = vec4(sqrt(color), 1.);
 
         // rayMarchOrdinary(L, W, V);
    }
